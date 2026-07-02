@@ -61,6 +61,11 @@ def main():
                 if vtype == "float":
                     values[(sheet, r, c)] = cell.get(
                         f"{{{NS['office']}}}value")
+                elif vtype == "string" and txt.strip():
+                    values[(sheet, r, c)] = txt.strip()
+                elif vtype == "date":
+                    values[(sheet, r, c)] = cell.get(
+                        f"{{{NS['office']}}}date-value")
                 for err in ERRORS:
                     if err in txt:
                         problems.append((sheet, r, c, formula, txt))
@@ -92,7 +97,39 @@ def main():
     show("IS estimé (C30)", "🧾 TVA & Impôts", 30, 3)
     show("KM — total km (I7)", "🚗 Indemnités KM", 7, 9)
     show("KM — indemnité (I8)", "🚗 Indemnités KM", 8, 9)
-    show("Dashboard — jauge budget % (K29)", "🏠 Dashboard", 29, 11)
+
+    print("\nScore de santé & indicateurs (données de démo) :")
+    for lab, r in [("Score trésorerie /100", 20),
+                   ("Score rentabilité /100", 21),
+                   ("Score budget /100", 22),
+                   ("Score dynamique CA /100", 23),
+                   ("Score provisions /100", 24),
+                   ("SCORE GLOBAL /100", 25),
+                   ("Runway (mois)", 11),
+                   ("Marge nette", 12),
+                   ("Seuil de rentabilité (€/mois)", 17),
+                   ("Résultat projeté (run-rate)", 18)]:
+        show(lab, "🏠 Dashboard", r, 17)
+    show("Statut santé (D12)", "🏠 Dashboard", 12, 4)
+
+    print("\nRecommandations (H13:H17) :")
+    for r in range(13, 18):
+        v = values.get(("🏠 Dashboard", r, 8))
+        print(f"  {r}: {v}")
+
+    print("\nÉchéancier :")
+    show("Prochaine échéance (date)", "📅 Échéancier", 5, 10)
+    show("Prochaine échéance (nature)", "📅 Échéancier", 6, 10)
+    show("À prévoir ce mois-ci", "📅 Échéancier", 9, 10)
+    show("Reste à payer sur l'année", "📅 Échéancier", 10, 10)
+
+    print("\nSimulateurs :")
+    show("Sim1 — CA HT à facturer/mois (C12)", "🧮 Simulateurs", 12, 3)
+    show("Sim1 — TJM (C14)", "🧮 Simulateurs", 14, 3)
+    show("Sim2 — net rémunération (C20)", "🧮 Simulateurs", 20, 3)
+    show("Sim2 — net dividendes (C25)", "🧮 Simulateurs", 25, 3)
+    show("Sim3 — résultat projeté hyp. (C37)", "🧮 Simulateurs", 37, 3)
+    show("Sim3 — tréso fin d'année hyp. (C39)", "🧮 Simulateurs", 39, 3)
 
 
 if __name__ == "__main__":

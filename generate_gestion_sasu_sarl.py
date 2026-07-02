@@ -52,6 +52,7 @@ MOIS = ["Janv", "Févr", "Mars", "Avr", "Mai", "Juin",
 
 # noms d'onglets (ordre = ordre du classeur)
 DASH = "🏠 Dashboard"
+START = "🚀 Démarrer ici"
 PAR = "⚙️ Paramètres"
 BUD = "📋 Budget"
 REC = "💰 Recettes"
@@ -59,7 +60,14 @@ DEP = "💸 Dépenses"
 SUI = "📊 Suivi mensuel"
 TRE = "🏦 Trésorerie"
 TVA = "🧾 TVA & Impôts"
+ECH = "📅 Échéancier"
+SIM = "🧮 Simulateurs"
 KM = "🚗 Indemnités KM"
+LEX = "📖 Lexique"
+
+MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin",
+           "juillet", "août", "septembre", "octobre", "novembre",
+           "décembre"]
 
 REC_FIRST, REC_LAST = 10, 209    # 200 lignes de saisie
 DEP_FIRST, DEP_LAST = 10, 309    # 300 lignes
@@ -227,6 +235,103 @@ def month_cols(first="C"):
     return [get_column_letter(start + i) for i in range(12)]
 
 
+# ============================================================ DÉMARRER ICI ==
+
+STEPS = [
+    ("1", "Configurez votre entreprise",
+     "Ouvrez l'onglet ⚙️ Paramètres et renseignez les 8 informations : nom, "
+     "forme juridique, année, solde de départ, régime de TVA, statut du "
+     "dirigeant, salaire net mensuel et CFE estimée. C'est le moteur de "
+     "tout le fichier."),
+    ("2", "Posez votre budget",
+     "Remplissez le 📋 Budget prévisionnel, mois par mois. Astuce : pas "
+     "d'idée précise ? Commencez large, vous ajusterez en cours d'année."),
+    ("3", "Saisissez au fil de l'eau",
+     "Chaque facture dans 💰 Recettes, chaque achat dans 💸 Dépenses. "
+     "Règle d'or : 5 minutes par semaine suffisent pour rester à jour."),
+    ("4", "Suivez vos trajets",
+     "À chaque déplacement professionnel, notez la date, le motif et les "
+     "kilomètres dans 🚗 Indemnités KM. Ce sont des remboursements que "
+     "beaucoup oublient."),
+    ("5", "Pilotez",
+     "Ouvrez le 🏠 Dashboard : score de santé, alertes, recommandations et "
+     "📅 Échéancier font le reste. Vous savez toujours où vous en êtes."),
+]
+
+ROUTINE = [
+    "◻  Toutes les factures et toutes les dépenses du mois sont saisies.",
+    "◻  Les encaissements sont pointés (colonne « Encaissé » des 💰 "
+    "Recettes).",
+    "◻  La TVA du mois est vérifiée dans 🧾 TVA & Impôts.",
+    "◻  Les provisions (URSSAF, IS, CFE) sont disponibles sur le compte.",
+    "◻  Les écarts du 📊 Suivi mensuel sont analysés (favorable ou non ?).",
+    "◻  La trésorerie du mois prochain est vérifiée dans 🏦 Trésorerie.",
+]
+
+
+def build_start(ws):
+    paint(ws, 11, 36)
+    ws.sheet_properties.tabColor = TAUPE
+    widths(ws, {"A": 2.5, "B": 6, "I": 13, "J": 3})
+    for cl in "CDEFGH":
+        ws.column_dimensions[cl].width = 13
+    banner(ws, "J", "🚀 DÉMARRER ICI",
+           "Bienvenue dans votre assistant de pilotage. En 15 minutes, "
+           "votre entreprise est configurée.")
+    tip(ws, "B3:J3",
+        "Suivez les 5 étapes dans l'ordre, cochez-les au fur et à mesure "
+        "(menu déroulant à droite), puis revenez ici chaque fin de mois "
+        "pour votre routine de 10 minutes.")
+
+    # barre de progression de la configuration
+    prog = merge(ws, "B4:I4",
+                 '="Configuration : "&COUNTIF($I$7:$I$19,"✅")'
+                 '&"/5 étapes ✅"',
+                 Font(name=FONT, size=13, bold=True, color=BORDEAUX),
+                 CREME, A_C, BORDER_INPUT)
+    ws.row_dimensions[4].height = 26
+
+    dv_check = DataValidation(type="list", formula1='"☐,✅"',
+                              allow_blank=True)
+    ws.add_data_validation(dv_check)
+
+    r = 7
+    for num, titre, desc in STEPS:
+        c = ws[f"B{r}"]
+        c.value = num
+        c.font = Font(name=FONT, size=16, bold=True, color=BORDEAUX)
+        c.fill = fill(CREME)
+        c.alignment = A_C
+        merge(ws, f"C{r}:H{r}", titre,
+              Font(name=FONT, size=12, bold=True, color=BORDEAUX), CREME,
+              A_L)
+        chk = cin(ws, f"I{r}", "☐")
+        chk.font = Font(name=FONT, size=12, color=BORDEAUX)
+        dv_check.add(f"I{r}")
+        merge(ws, f"B{r + 1}:B{r + 1}", "", F_LABEL, CREME)
+        merge(ws, f"C{r + 1}:I{r + 1}", desc, F_LABEL, CREME, A_LW)
+        ws.row_dimensions[r].height = 22
+        ws.row_dimensions[r + 1].height = 30
+        box(ws, r, 2, r + 1, 9, TAUPE_L)
+        r += 3
+
+    # routine mensuelle
+    band(ws, "B22:I22", "⏱️ VOTRE ROUTINE MENSUELLE EN 10 MINUTES")
+    for i, item in enumerate(ROUTINE):
+        merge(ws, f"B{23 + i}:I{23 + i}", item, F_LABEL, BEIGE_ALT, A_LW,
+              BORDER)
+        ws.row_dimensions[23 + i].height = 18
+    box(ws, 22, 2, 28, 9, TAUPE)
+
+    # renvoi vers le lexique
+    merge(ws, "B30:I31",
+          "❓ Une question ? L'onglet 📖 Lexique vous explique tous les "
+          "termes (TVA, IS, runway, provision…) en langage simple, avec "
+          "des exemples concrets.",
+          Font(name=FONT, size=10, italic=True, color=TAUPE), CREME, A_LW)
+    box(ws, 30, 2, 31, 9, TAUPE_L)
+
+
 # ============================================================== PARAMÈTRES ==
 
 def build_parametres(ws):
@@ -235,8 +340,8 @@ def build_parametres(ws):
     widths(ws, {"A": 2.5, "B": 34, "C": 22, "D": 3, "E": 26, "F": 17,
                 "G": 19, "H": 21, "I": 15, "J": 3})
     banner(ws, "J", "⚙️ PARAMÈTRES",
-           "Toutes les hypothèses de votre gestion — à remplir une fois en "
-           "début d'année")
+           "En clair : la fiche d'identité de votre gestion — remplie une "
+           "fois, utilisée par tous les onglets.")
     tip(ws, "B3:J3",
         "Remplissez uniquement les cellules crème. Elles alimentent "
         "automatiquement tous les autres onglets : ne modifiez ni l'ordre "
@@ -319,6 +424,24 @@ def build_parametres(ws):
         cin(ws, f"H{r}", row[3], MONEY0)
         cin(ws, f"I{r}", row[4], "0.000")
 
+    # --- échéancier & simulateurs ---------------------------------------
+    band(ws, "B24:C24", "Échéancier & simulateurs")
+    label(ws, "B25", "Jour de prélèvement URSSAF (5 ou 15)")
+    cin(ws, "C25", 5, "0")
+    label(ws, "B26", "Flat tax sur dividendes (PFU)")
+    cin(ws, "C26", 0.30, PCT0)
+    label(ws, "B27", "Acompte TVA de juillet (réel simplifié)")
+    cin(ws, "C27", 0.55, PCT0)
+    label(ws, "B28", "Acompte TVA de décembre (réel simplifié)")
+    cin(ws, "C28", 0.40, PCT0)
+    merge(ws, "B29:C29",
+          "Jours et taux usuels, à ajuster selon votre situation.",
+          F_NOTE, BEIGE, A_LW)
+    dv_jour = DataValidation(type="list", formula1='"5,15"',
+                             allow_blank=True)
+    ws.add_data_validation(dv_jour)
+    dv_jour.add("C25")
+
     # --- listes de référence -------------------------------------------
     band(ws, "E20:I20", "Listes de référence (menus déroulants — ne pas "
                         "déplacer)", TAUPE)
@@ -363,6 +486,10 @@ def define_names(wb):
         "SEUIL_IS": f"{q}$F$6",
         "TAUX_IS_REDUIT": f"{q}$F$7",
         "TAUX_IS_NORMAL": f"{q}$F$8",
+        "JOUR_URSSAF": f"{q}$C$25",
+        "FLAT_TAX": f"{q}$C$26",
+        "TVA_AC_JUIL": f"{q}$C$27",
+        "TVA_AC_DEC": f"{q}$C$28",
         "BAREME_KM": f"{q}$E$13:$I$17",
         "LISTE_TVA": f"{q}$F$21:$F$25",
         "LISTE_CATEGORIES": f"'{BUD}'!$B$16:$B$30",
@@ -406,7 +533,8 @@ def build_budget(ws):
     for col in month_cols():
         ws.column_dimensions[col].width = 10.5
     banner(ws, "O", "📋 BUDGET PRÉVISIONNEL",
-           "Vos objectifs de recettes et de dépenses, mois par mois")
+           "En clair : ce que vous prévoyez de gagner et de dépenser — "
+           "votre feuille de route de l'année.")
     tip(ws, "B3:O3",
         "Saisissez vos prévisions dans les cellules crème (catégories "
         "personnalisables). Le salaire du dirigeant et ses charges sont "
@@ -540,8 +668,8 @@ def build_recettes(ws):
                 "G": 12, "H": 13, "I": 11, "J": 7.5, "K": 3,
                 "L": 10.5, "M": 10.5, "N": 10.5, "O": 12})
     banner(ws, "O", "💰 RECETTES",
-           "Saisissez chaque facture émise — TVA, TTC et mois se calculent "
-           "seuls")
+           "En clair : tout ce que vous facturez à vos clients — la source "
+           "de votre chiffre d'affaires.")
     tip(ws, "B3:O3",
         "Une ligne par facture : remplissez les cellules crème (date, "
         "client, description, montant HT, taux de TVA, encaissé). Les dix "
@@ -603,8 +731,8 @@ def build_depenses(ws):
                 "G": 9.5, "H": 13, "I": 13, "J": 10, "K": 7.5, "L": 3,
                 "M": 10.5, "N": 10.5, "O": 12})
     banner(ws, "O", "💸 DÉPENSES",
-           "Saisissez chaque dépense professionnelle — TVA déductible et "
-           "TTC automatiques")
+           "En clair : tout ce que l'entreprise dépense — pour garder la "
+           "main sur vos coûts.")
     tip(ws, "B3:O3",
         "Choisissez la catégorie dans le menu déroulant (liste de l'onglet "
         "📋 Budget). Ne saisissez pas ici le salaire du dirigeant, les "
@@ -688,8 +816,8 @@ def build_suivi(ws):
         ws.column_dimensions[cl].width = 13.5
     widths(ws, {"L": 3})
     banner(ws, "K", "📊 SUIVI MENSUEL — PRÉVISIONNEL vs RÉALISÉ",
-           "Aucune saisie ici : tout se calcule depuis Budget, Recettes et "
-           "Dépenses")
+           "En clair : prévu contre réalisé — pour savoir si vous êtes sur "
+           "la bonne trajectoire.")
     tip(ws, "B3:K3",
         "Un écart positif est toujours favorable (vert) ; un écart négatif "
         "est défavorable (rouge). Les dépenses réalisées incluent "
@@ -764,7 +892,8 @@ def build_tresorerie(ws):
     for cl in month_cols():
         ws.column_dimensions[cl].width = 11
     banner(ws, "O", "🏦 PLAN DE TRÉSORERIE",
-           "Votre solde de banque prévisionnel, mois par mois")
+           "En clair : combien il y a réellement sur le compte, mois par "
+           "mois — le nerf de la guerre.")
     tip(ws, "B3:O3",
         "Seules les lignes « Autres encaissements » et « Autres "
         "décaissements » se saisissent ici. Le reste provient de vos "
@@ -844,8 +973,8 @@ def build_tva(ws):
     widths(ws, {"A": 2.5, "B": 30, "C": 15, "D": 15, "E": 15, "F": 3,
                 "G": 26, "H": 16, "I": 3})
     banner(ws, "H", "🧾 TVA & IMPÔTS",
-           "TVA, cotisations URSSAF, impôt sur les sociétés et CFE — tout "
-           "est automatique")
+           "En clair : ce que vous devrez reverser (TVA, URSSAF, IS, CFE) "
+           "— estimé d'avance pour éviter les surprises.")
     tip(ws, "B3:H3",
         "Aucune saisie ici (sauf la base IS, modifiable). En franchise en "
         "base de TVA, les montants de TVA sont automatiquement à zéro. "
@@ -986,7 +1115,8 @@ def build_km(ws):
     widths(ws, {"A": 2.5, "B": 12, "C": 36, "D": 18, "E": 18, "F": 12,
                 "G": 3, "H": 28, "I": 16, "J": 3})
     banner(ws, "I", "🚗 INDEMNITÉS KILOMÉTRIQUES",
-           "Notez vos déplacements professionnels, le barème fait le reste")
+           "En clair : vos trajets pro deviennent un remboursement "
+           "défiscalisé — notez-les, c'est de l'argent.")
     tip(ws, "B3:I3",
         "Choisissez la puissance fiscale de votre véhicule, puis saisissez "
         "chaque déplacement (km aller-retour). L'indemnité est calculée sur "
@@ -1053,13 +1183,25 @@ def kpi_card(ws, col1, col2, r, titre, formule, fmt, sous_titre):
 
 
 def build_dashboard(ws):
-    paint(ws, 14, 36)
+    paint(ws, 17, 50)
     ws.sheet_properties.tabColor = BORDEAUX
-    widths(ws, {"A": 2.5, "N": 3})
+    widths(ws, {"A": 2.5, "N": 3, "P": 30, "Q": 14})
     for cl in "BCDEFGHIJKLM":
         ws.column_dimensions[cl].width = 12.5
     banner(ws, "N", '="🏠  "&UPPER(NOM_ENT)&" — TABLEAU DE BORD "&ANNEE',
-           "Pilotage financier SASU/SARL · La Fabrique Astucieuse")
+           "En clair : toute votre entreprise en un coup d'œil — santé, "
+           "alertes et chiffres clés.")
+
+    # rappel de la configuration (onglet 🚀 Démarrer ici) + zone 1
+    c = ws["B3"]
+    c.value = "VUE D'ENSEMBLE"
+    c.font = Font(name=FONT, size=9, bold=True, color=TAUPE)
+    c.alignment = A_L
+    merge(ws, "K3:M3",
+          f'="🚀 Configuration : "&COUNTIF(\'{START}\'!$I$7:$I$19,"✅")'
+          f'&"/5 étapes"',
+          Font(name=FONT, size=8.5, italic=True, color=TAUPE), BEIGE,
+          Alignment(horizontal="right", vertical="center"))
 
     # --- cartes KPI --------------------------------------------------------
     ws.row_dimensions[4].height = 16
@@ -1076,9 +1218,11 @@ def build_dashboard(ws):
              "solde fin du mois en cours")
     kpi_card(ws, "J", "K", 4, "TVA estimée à payer",
              f"='{TVA}'!$H$13", MONEY0, "estimation — mois en cours")
-    kpi_card(ws, "L", "M", 4, "Provisions estimées du mois",
-             f"='{TVA}'!$H$17", MONEY0,
-             "URSSAF le 5 · IS 15/03·06·09·12 · CFE 15/12")
+    kpi_card(ws, "L", "M", 4, "Prochaine échéance",
+             f"=IF('{ECH}'!$J$5=0,\"—\",'{ECH}'!$J$5)", DATEF,
+             f"=IF('{ECH}'!$J$5=0,\"aucune échéance à venir\","
+             f"'{ECH}'!$J$6&\" · \"&ROUND('{ECH}'!$J$7,0)&\" € · dans \""
+             f"&'{ECH}'!$J$8&\" j\")")
     ws.conditional_formatting.add("F5", CellIsRule(
         operator="lessThan", formula=["0"],
         font=Font(name=FONT, size=15, bold=True, color=TERRA)))
@@ -1086,7 +1230,196 @@ def build_dashboard(ws):
         operator="lessThan", formula=["0"],
         font=Font(name=FONT, size=15, bold=True, color=TERRA)))
 
-    # --- graphiques --------------------------------------------------------
+    # --- zone de calcul (colonnes P/Q, hors écran principal) ----------------
+    tiny = Font(name=FONT, size=8, color=TAUPE)
+    merge(ws, "P3:Q3", "Zone de calcul — ne pas supprimer", tiny, BEIGE, A_L)
+    helpers = [
+        (4, "Mois en cours (borné à l'année)", f"={MIDX}", "0"),
+        (5, "CA réalisé cumulé à date",
+         f"=SUM('{SUI}'!$D$7:INDEX('{SUI}'!$D$7:$D$18,$Q$4))", MONEY0),
+        (6, "Dépenses réalisées cumulées à date",
+         f"=SUM('{SUI}'!$G$7:INDEX('{SUI}'!$G$7:$G$18,$Q$4))", MONEY0),
+        (7, "CA prévu cumulé à date",
+         f"=SUM('{SUI}'!$C$7:INDEX('{SUI}'!$C$7:$C$18,$Q$4))", MONEY0),
+        (8, "Dépenses prévues cumulées à date",
+         f"=SUM('{SUI}'!$F$7:INDEX('{SUI}'!$F$7:$F$18,$Q$4))", MONEY0),
+        (9, "Trésorerie actuelle",
+         f"=INDEX('{TRE}'!$C$20:$N$20,$Q$4)", MONEY0),
+        (10, "Décaissements mensuels moyens",
+         f"=IFERROR(SUM('{TRE}'!$C$19:INDEX('{TRE}'!$C$19:$N$19,$Q$4))"
+         f"/$Q$4,0)", MONEY0),
+        (11, "Runway (mois d'autonomie)",
+         "=IFERROR(IF($Q$10<=0,99,MAX(0,$Q$9)/$Q$10),0)", "0.0"),
+        (12, "Marge nette réalisée",
+         "=IFERROR(($Q$5-$Q$6)/$Q$5,0)", PCT),
+        (13, "Dépenses réalisées / prévues à date",
+         "=IFERROR($Q$6/$Q$8,1)", PCT),
+        (14, "CA réalisé / prévu à date",
+         "=IFERROR($Q$5/$Q$7,0)", PCT),
+        (15, "Provisions du mois (estimation)",
+         f"='{TVA}'!$H$17", MONEY0),
+        (16, "Factures non encaissées (TTC)",
+         f"=SUMIFS('{REC}'!$H${REC_FIRST}:$H${REC_LAST},"
+         f"'{REC}'!$I${REC_FIRST}:$I${REC_LAST},\"Non\")", MONEY0),
+        (17, "Seuil de rentabilité mensuel",
+         "=IFERROR($Q$6/$Q$4,0)", MONEY0),
+        (18, "Résultat projeté fin d'année (run-rate)",
+         "=IFERROR(($Q$5-$Q$6)/$Q$4*12,0)", MONEY0),
+        (19, "Données saisies ? (1 = oui)",
+         f"=IF($Q$5+'{DEP}'!$O$6=0,0,1)", "0"),
+        (20, "Score trésorerie /100",
+         "=MIN(100,MAX(0,ROUND($Q$11/6*100,0)))", "0"),
+        (21, "Score rentabilité /100",
+         "=MIN(100,MAX(0,ROUND($Q$12/0.2*100,0)))", "0"),
+        (22, "Score respect du budget /100",
+         "=MIN(100,MAX(0,ROUND(100-MAX(0,$Q$13-1)*200,0)))", "0"),
+        (23, "Score dynamique CA /100",
+         "=MIN(100,MAX(0,ROUND($Q$14*100,0)))", "0"),
+        (24, "Score provisions /100",
+         "=IF($Q$9>=$Q$15,100,0)", "0"),
+        (25, "SCORE GLOBAL /100",
+         "=ROUND(0.3*$Q$20+0.25*$Q$21+0.2*$Q$22+0.15*$Q$23+0.1*$Q$24,0)",
+         "0"),
+        (26, "CA facturé TTC (année)",
+         f"=SUM('{REC}'!$H${REC_FIRST}:$H${REC_LAST})", MONEY0),
+    ]
+    # dépenses réalisées par catégorie du budget (pour le Top 5) ; le
+    # micro-ajout (ROW()/1e6) départage les ex æquo sans fausser l'affichage
+    for i in range(15):
+        r = 28 + i
+        helpers.append((r, f"='{BUD}'!$B${16 + i}",
+                        f"=SUMIFS('{DEP}'!$F${DEP_FIRST}:$F${DEP_LAST},"
+                        f"'{DEP}'!$D${DEP_FIRST}:$D${DEP_LAST},$P{r})"
+                        f"+(ROW()-27)/1000000", MONEY0))
+    for r, lab, formula, *fmt in helpers:
+        lc = ws[f"P{r}"]
+        lc.value = lab
+        lc.font = tiny
+        lc.alignment = A_L
+        vc = ws[f"Q{r}"]
+        vc.value = formula
+        vc.font = tiny
+        vc.alignment = A_R
+        vc.number_format = fmt[0] if fmt else NUMF
+
+    # --- indicateurs compacts (sous les cartes KPI) ---------------------------
+    ws.row_dimensions[8].height = 13
+    ws.row_dimensions[9].height = 22
+    chips = [
+        ("B", "D", "⏳ RUNWAY",
+         '=IF($Q$19=0,"—",ROUND($Q$11,1)&" mois d\'autonomie")'),
+        ("E", "G", "📈 MARGE NETTE",
+         '=IF($Q$19=0,"—",ROUND($Q$12*100,0)&" % du CA")'),
+        ("H", "J", "🎯 SEUIL DE RENTABILITÉ",
+         '=IF($Q$19=0,"—",ROUND($Q$17,0)&" €/mois de CA pour couvrir '
+         'vos charges")'),
+        ("K", "M", "🔮 RÉSULTAT PROJETÉ",
+         '=IF($Q$19=0,"—",ROUND($Q$18,0)&" € fin d\'année (run-rate)")'),
+    ]
+    for c1, c2, lab, formula in chips:
+        merge(ws, f"{c1}8:{c2}8", lab, F_KPI_LAB, CREME, A_C)
+        merge(ws, f"{c1}9:{c2}9", formula,
+              Font(name=FONT, size=9.5, bold=True, color=BORDEAUX), CREME,
+              A_CW)
+        col1 = ws[f"{c1}8"].column
+        col2 = ws[f"{c2}8"].column
+        box(ws, 8, col1, 9, col2, TAUPE_L)
+
+    # --- zone 2 : santé & recommandations -----------------------------------
+    band(ws, "B11:M11", "SANTÉ & RECOMMANDATIONS", TAUPE)
+    merge(ws, "B12:C12", "🩺 SANTÉ FINANCIÈRE", F_KPI_LAB, CREME, A_C)
+    merge(ws, "D12:G12",
+          '=IF($Q$19=0,"— en attente de données",IF($Q$25>=75,'
+          '"🟢 Solide",IF($Q$25>=40,"🟡 À surveiller","🔴 Fragile")))',
+          Font(name=FONT, size=11, bold=True, color=INK), CREME, A_L)
+    merge(ws, "B13:C13", '=IF($Q$19=0,"—",$Q$25&" / 100")',
+          Font(name=FONT, size=18, bold=True, color=BORDEAUX), CREME, A_C)
+    merge(ws, "D13:G13",
+          '=IF($Q$19=0,"",REPT("█",ROUND($Q$25/5,0))'
+          '&REPT("░",20-ROUND($Q$25/5,0)))',
+          Font(name=FONT, size=11, color=BORDEAUX), CREME, A_L)
+    ws.row_dimensions[13].height = 24
+    composantes = [
+        (14, "Trésorerie (30 %)", "$Q$20",
+         '"Autonomie : "&ROUND($Q$11,1)&" mois de décaissements devant '
+         'vous (objectif : 6)."'),
+        (15, "Rentabilité (25 %)", "$Q$21",
+         '"Marge nette : "&ROUND($Q$12*100,0)&" % du CA (objectif : '
+         '20 %)."'),
+        (16, "Respect du budget (20 %)", "$Q$22",
+         '"Dépenses : "&ROUND($Q$13*100,0)&" % du budget prévu à date '
+         '(objectif : 100 % maximum)."'),
+        (17, "Dynamique CA (15 %)", "$Q$23",
+         '"CA réalisé : "&ROUND($Q$14*100,0)&" % du prévisionnel à '
+         'date."'),
+        (18, "Provisions (10 %)", "$Q$24",
+         'IF($Q$24=100,"Les provisions du mois sont couvertes par la '
+         'trésorerie.","La trésorerie ne couvre pas encore les provisions '
+         'du mois.")'),
+    ]
+    for r, lab, score_ref, phrase in composantes:
+        merge(ws, f"B{r}:C{r}", lab, F_LABEL_B, CREME, A_L)
+        sc = ws[f"D{r}"]
+        sc.value = f'=IF($Q$19=0,"—",{score_ref}&"/100")'
+        sc.font = F_CALC_B
+        sc.fill = fill(CREME)
+        sc.alignment = A_C
+        merge(ws, f"E{r}:G{r}",
+              f'=IF($Q$19=0,"— en attente de données",{phrase})',
+              F_NOTE, CREME, A_LW)
+        ws.row_dimensions[r].height = 28
+    ws.row_dimensions[18].height = 18
+    box(ws, 12, 2, 18, 7, TAUPE)
+
+    # --- recommandations contextuelles ---------------------------------------
+    band(ws, "H12:M12", "🧭 VOS RECOMMANDATIONS DU MOMENT")
+    attente = "— En attente de vos premières saisies."
+    recos = [
+        (13,
+         f'=IF($Q$19=0,"{attente}",IF($Q$11<3,'
+         '"⚠️ Moins de 3 mois d\'autonomie de trésorerie. Priorité : '
+         'relancez vos factures non encaissées ("&ROUND($Q$16,0)&" € en '
+         'attente) et décalez les dépenses non urgentes.",'
+         '"✓ RAS — trésorerie : "&ROUND($Q$11,1)&" mois d\'autonomie '
+         'devant vous."))'),
+        (14,
+         f'=IF($Q$19=0,"{attente}",IF($Q$13>1.1,'
+         '"📊 Vos dépenses dépassent le budget de "&ROUND(($Q$13-1)*100,0)'
+         '&" %. Consultez le 📊 Suivi mensuel pour repérer la catégorie '
+         'en cause.",'
+         '"✓ RAS — budget respecté à ce stade de l\'année."))'),
+        (15,
+         f"=IF('{ECH}'!$J$5=0,\"✓ RAS — aucune échéance à venir.\","
+         f"IF(AND('{ECH}'!$J$8<15,$Q$9<'{ECH}'!$J$7),"
+         f"\"📅 Échéance \"&'{ECH}'!$J$6&\" dans \"&'{ECH}'!$J$8"
+         f"&\" j : prévoyez \"&ROUND('{ECH}'!$J$7,0)"
+         f'&" € sur le compte.",'
+         f'"✓ RAS — prochaine échéance sous contrôle."))'),
+        (16,
+         f'=IF($Q$19=0,"{attente}",IF(AND($Q$26>0,$Q$16>0.2*$Q$26),'
+         '"💶 "&ROUND($Q$16,0)&" € facturés mais non encaissés. Pensez '
+         'aux relances — c\'est de la trésorerie qui dort.",'
+         '"✓ RAS — encaissements à jour."))'),
+        (17,
+         '=IF($Q$19=0,"🌱 Commencez à saisir vos factures et vos dépenses '
+         ': vos recommandations personnalisées s\'afficheront ici.",'
+         'IF(COUNTIF($H$13:$H$16,"✓*")=4,'
+         '"🎉 Tous les voyants sont au vert ce mois-ci. Continuez comme '
+         'ça !",'
+         '"☝️ Traitez les points ci-dessus — le reste est sous '
+         'contrôle."))'),
+    ]
+    for r, formula in recos:
+        merge(ws, f"H{r}:M{r}", formula,
+              Font(name=FONT, size=9, color=INK), CREME, A_LW)
+    merge(ws, "H18:M18",
+          "Recommandations générales, à titre indicatif.",
+          Font(name=FONT, size=8, italic=True, color=TAUPE), CREME, A_L)
+    box(ws, 12, 8, 18, 13, TAUPE)
+
+    # --- zone 3 : analyses ----------------------------------------------------
+    band(ws, "B20:M20", "ANALYSES", TAUPE)
+
     def style_chart(chart, title):
         """Types natifs simples, fond beige sans bordure, titre bordeaux —
         importables tels quels dans Google Sheets."""
@@ -1123,7 +1456,7 @@ def build_dashboard(ws):
     bar.y_axis.delete = False
     bar.width = 13.2
     bar.height = 8.2
-    ws.add_chart(bar, "B8")
+    ws.add_chart(bar, "B21")
 
     line = LineChart()
     line.grouping = "standard"
@@ -1143,27 +1476,27 @@ def build_dashboard(ws):
     line.y_axis.delete = False
     line.width = 13.2
     line.height = 8.2
-    ws.add_chart(line, "H8")
+    ws.add_chart(line, "H21")
 
     # --- mini-tableau prévisionnel vs réalisé -------------------------------
-    band(ws, "B25:H25", "PRÉVISIONNEL vs RÉALISÉ — CUMUL ANNUEL")
-    head(ws, "B26", "", TAUPE)
-    head(ws, "C26", "Prévu", TAUPE)
-    head(ws, "D26", "Réalisé", TAUPE)
-    head(ws, "E26", "Écart", TAUPE)
-    head(ws, "F26", "Écart %", TAUPE)
-    head(ws, "G26", "Tendance", TAUPE)
-    head(ws, "H26", "Progression", TAUPE)
+    band(ws, "B38:H38", "PRÉVISIONNEL vs RÉALISÉ — CUMUL ANNUEL")
+    head(ws, "B39", "", TAUPE)
+    head(ws, "C39", "Prévu", TAUPE)
+    head(ws, "D39", "Réalisé", TAUPE)
+    head(ws, "E39", "Écart", TAUPE)
+    head(ws, "F39", "Écart %", TAUPE)
+    head(ws, "G39", "Tendance", TAUPE)
+    head(ws, "H39", "Progression", TAUPE)
     rows = [
         ("Recettes", f"='{BUD}'!$O$12", f"='{SUI}'!$D$19",
-         "=D27-C27", "=IFERROR(E27/C27,0)"),
+         "=D40-C40", "=IFERROR(E40/C40,0)"),
         ("Dépenses", f"='{BUD}'!$O$31", f"='{SUI}'!$G$19",
-         "=C28-D28", "=IFERROR(E28/C28,0)"),
+         "=C41-D41", "=IFERROR(E41/C41,0)"),
         ("Résultat", f"='{BUD}'!$O$33", f"='{SUI}'!$J$19",
-         "=D29-C29", "=IFERROR(E29/ABS(C29),0)"),
+         "=D42-C42", "=IFERROR(E42/ABS(C42),0)"),
     ]
     for i, (lab, prev, real, ecart, pc) in enumerate(rows):
-        r = 27 + i
+        r = 40 + i
         c = ws[f"B{r}"]
         c.value = lab
         c.font = F_LABEL_B
@@ -1188,34 +1521,467 @@ def build_dashboard(ws):
     sauge_f = Font(name=FONT, size=10, bold=True, color=SAUGE)
     terra_f = Font(name=FONT, size=10, bold=True, color=TERRA)
     for cl in ("E", "G"):
-        ws.conditional_formatting.add(f"{cl}27:{cl}29", FormulaRule(
-            formula=["$E27>=0"], font=sauge_f))
-        ws.conditional_formatting.add(f"{cl}27:{cl}29", FormulaRule(
-            formula=["$E27<0"], font=terra_f))
+        ws.conditional_formatting.add(f"{cl}40:{cl}42", FormulaRule(
+            formula=["$E40>=0"], font=sauge_f))
+        ws.conditional_formatting.add(f"{cl}40:{cl}42", FormulaRule(
+            formula=["$E40<0"], font=terra_f))
 
-    # --- indemnités km + jauge budget ----------------------------------------
-    band(ws, "I25:M25", "🚗 INDEMNITÉS KILOMÉTRIQUES & BUDGET", TAUPE)
-    label(ws, "I26", "Kilomètres cumulés")
-    v = ccalc(ws, "K26", f"='{KM}'!$I$7", KMF, bold=True)
-    merge(ws, "K26:M26")
-    label(ws, "I27", "Indemnité estimée")
-    v = ccalc(ws, "K27", f"='{KM}'!$I$8", MONEY, bold=True, font=F_TOTAL)
-    merge(ws, "K27:M27")
-    label(ws, "I29", "Budget annuel consommé")
-    ccalc(ws, "K29", f"=IFERROR('{SUI}'!$G$19/'{BUD}'!$O$31,0)", PCT0,
-          bold=True)
-    # barre de progression 100 % formule (compatible Excel + Google Sheets)
-    gauge = f"MIN(1,MAX(0,$K$29))"
-    g = merge(ws, "L29:M29",
-              f'=REPT("█",ROUND({gauge}*20,0))'
-              f'&REPT("░",20-ROUND({gauge}*20,0))',
+    # --- top 5 des dépenses de l'année ----------------------------------------
+    band(ws, "I38:M38", "TOP 5 DES DÉPENSES DE L'ANNÉE", TAUPE)
+    merge(ws, "I39:J39", "Catégorie", F_HEAD, TAUPE, A_CW, BORDER)
+    head(ws, "K39", "Montant", TAUPE)
+    merge(ws, "L39:M39", "Poids", F_HEAD, TAUPE, A_CW, BORDER)
+    for k in range(1, 6):
+        r = 39 + k
+        big = f"LARGE($Q$28:$Q$42,{k})"
+        merge(ws, f"I{r}:J{r}",
+              f'=IFERROR(IF({big}<0.005,"—",'
+              f"INDEX($P$28:$P$42,MATCH({big},$Q$28:$Q$42,0))),\"—\")",
+              F_LABEL, BEIGE_ALT, A_LW, BORDER)
+        ccalc(ws, f"K{r}", f"=IFERROR(ROUND({big},0),0)", MONEY0)
+        share = f"{big}/MAX($Q$28:$Q$42)"
+        merge(ws, f"L{r}:M{r}",
+              f'=IFERROR(IF(MAX($Q$28:$Q$42)<0.005,"",'
+              f'REPT("█",ROUND({share}*10,0))'
+              f'&REPT("░",10-ROUND({share}*10,0))),"")',
               Font(name=FONT, size=9, color=BORDEAUX), CREME, A_L, BORDER)
 
+    # --- indemnités km + jauge budget ----------------------------------------
+    merge(ws, "B45:G45",
+          f'="🚗 Indemnités kilométriques : "&ROUND(\'{KM}\'!$I$7,0)'
+          f'&" km · "&ROUND(\'{KM}\'!$I$8,0)&" € (estimation)"',
+          F_LABEL_B, BEIGE_ALT, A_L, BORDER)
+    label(ws, "I45", "Budget annuel consommé")
+    ccalc(ws, "K45", f"=IFERROR('{SUI}'!$G$19/'{BUD}'!$O$31,0)", PCT0,
+          bold=True)
+    # barre de progression 100 % formule (compatible Excel + Google Sheets)
+    gauge = "MIN(1,MAX(0,$K$45))"
+    merge(ws, "L45:M45",
+          f'=REPT("█",ROUND({gauge}*20,0))'
+          f'&REPT("░",20-ROUND({gauge}*20,0))',
+          Font(name=FONT, size=9, color=BORDEAUX), CREME, A_L, BORDER)
+
     # --- disclaimer -----------------------------------------------------------
-    merge(ws, "B32:M32",
+    merge(ws, "B47:M47",
           "Outil de pilotage et d'estimation. Les montants de TVA, IS, CFE "
           "et cotisations sont indicatifs et ne remplacent pas l'avis d'un "
           "expert-comptable.", F_NOTE, BEIGE, A_CW)
+
+
+# ============================================== stubs (phases suivantes) ===
+
+def build_echeancier(ws):
+    paint(ws, 11, 50)
+    ws.sheet_properties.tabColor = TAUPE
+    widths(ws, {"A": 2.5, "B": 13, "C": 18, "D": 42, "E": 14, "F": 12,
+                "G": 22, "H": 3, "I": 30, "J": 14})
+    banner(ws, "J", "📅 ÉCHÉANCIER FISCAL & SOCIAL",
+           "En clair : toutes vos dates limites (TVA, URSSAF, IS, CFE) au "
+           "même endroit — fini les mauvaises surprises.")
+    tip(ws, "B3:J3",
+        "Les lignes s'adaptent automatiquement à votre régime de TVA "
+        "(⚙️ Paramètres). Passez une échéance en « Payé » quand c'est "
+        "réglé : le compte à rebours et les totaux se mettent à jour "
+        "seuls.")
+
+    first, last = 11, 43
+
+    # --- zone de calcul -------------------------------------------------
+    tiny = Font(name=FONT, size=8, color=TAUPE)
+    merge(ws, "I4:J4", "Zone de calcul — ne pas supprimer", tiny, BEIGE,
+          A_L)
+    ech_helpers = [
+        (5, "Prochaine échéance (date)",
+         f"=IF(COUNT($H${first}:$H${last})=0,0,MIN($H${first}:$H${last}))",
+         DATEF),
+        (6, "Prochaine échéance (nature)",
+         f"=IF($J$5=0,\"—\",INDEX($D${first}:$D${last},"
+         f"MATCH($J$5,$B${first}:$B${last},0)))", "@"),
+        (7, "Prochaine échéance (montant)",
+         f"=IF($J$5=0,0,INDEX($E${first}:$E${last},"
+         f"MATCH($J$5,$B${first}:$B${last},0)))", MONEY0),
+        (8, "Prochaine échéance (jours)",
+         "=IF($J$5=0,0,$J$5-TODAY())", "0"),
+        (9, "À prévoir ce mois-ci",
+         f"=SUMIFS($E${first}:$E${last},$B${first}:$B${last},"
+         f'">="&DATE(ANNEE,{MIDX},1),$B${first}:$B${last},'
+         f'"<"&DATE(ANNEE,{MIDX}+1,1),$F${first}:$F${last},"<>Payé")',
+         MONEY0),
+        (10, "Reste à payer sur l'année",
+         f"=SUMIFS($E${first}:$E${last},$B${first}:$B${last},"
+         f'">="&TODAY(),$F${first}:$F${last},"<>Payé")', MONEY0),
+    ]
+    for r, lab, formula, fmt in ech_helpers:
+        lc = ws[f"I{r}"]
+        lc.value = lab
+        lc.font = tiny
+        lc.alignment = A_L
+        vc = ws[f"J{r}"]
+        vc.value = formula
+        vc.font = tiny
+        vc.alignment = A_R
+        vc.number_format = fmt
+
+    # --- cartes ----------------------------------------------------------
+    ws.row_dimensions[5].height = 16
+    ws.row_dimensions[6].height = 26
+    ws.row_dimensions[7].height = 20
+    kpi_card(ws, "B", "C", 5, "Prochaine échéance",
+             '=IF($J$5=0,"—",$J$5)', DATEF,
+             '=IF($J$5=0,"aucune échéance à venir",$J$6&" · dans "&$J$8'
+             '&" j")')
+    kpi_card(ws, "D", "E", 5, "À prévoir ce mois-ci", "=$J$9", MONEY0,
+             "échéances non payées du mois (estimation)")
+    kpi_card(ws, "F", "G", 5, "Reste à payer sur l'année", "=$J$10",
+             MONEY0, "toutes échéances à venir (estimation)")
+
+    # --- tableau des échéances -------------------------------------------
+    for i, h in enumerate(["Date", "Organisme", "Nature",
+                           "Montant estimé", "Statut",
+                           "Compte à rebours"]):
+        head(ws, f"{get_column_letter(2 + i)}10", h)
+    ws.row_dimensions[10].height = 22
+
+    urssaf_amt = "=ROUND(SALAIRE_NET*TAUX_CHARGES,2)"
+    rows = []
+    for m in range(1, 13):
+        rows.append((f"=DATE(ANNEE,{m},JOUR_URSSAF*1)", "URSSAF",
+                     f"Cotisations sociales — {MOIS_FR[m - 1]} "
+                     f"(estimation)", urssaf_amt))
+        due = (f"DATE(ANNEE,{m + 1},15)" if m < 12
+               else "DATE(ANNEE+1,1,15)")
+        rows.append((f'=IF(REGIME_TVA="Réel normal",{due},"")',
+                     "Impôts (TVA)",
+                     f"TVA de {MOIS_FR[m - 1]} (estimation)",
+                     f'=IF(REGIME_TVA="Réel normal",'
+                     f"MAX(0,'{TVA}'!$E${6 + m}),\"\")"))
+    rows += [
+        ('=IF(REGIME_TVA="Réel simplifié",DATE(ANNEE,7,15),"")',
+         "Impôts (TVA)",
+         "Acompte de TVA de juillet — réel simplifié (estimation)",
+         f'=IF(REGIME_TVA="Réel simplifié",'
+         f"MAX(0,ROUND('{TVA}'!$E$19*TVA_AC_JUIL,2)),\"\")"),
+        ('=IF(REGIME_TVA="Réel simplifié",DATE(ANNEE,12,15),"")',
+         "Impôts (TVA)",
+         "Acompte de TVA de décembre — réel simplifié (estimation)",
+         f'=IF(REGIME_TVA="Réel simplifié",'
+         f"MAX(0,ROUND('{TVA}'!$E$19*TVA_AC_DEC,2)),\"\")"),
+        ('=IF(REGIME_TVA="Réel simplifié",DATE(ANNEE+1,5,3),"")',
+         "Impôts (TVA)",
+         "Solde de TVA (déclaration CA12) — mai N+1 (estimation)",
+         f'=IF(REGIME_TVA="Réel simplifié",'
+         f"MAX(0,ROUND('{TVA}'!$E$19*(1-TVA_AC_JUIL-TVA_AC_DEC),2)),"
+         f'"")'),
+        ("=DATE(ANNEE,3,15)", "Impôts (IS)",
+         "1er acompte d'IS (estimation)", f"='{TVA}'!$C$31"),
+        ("=DATE(ANNEE,6,15)", "Impôts (IS)",
+         "2e acompte d'IS (estimation)", f"='{TVA}'!$C$31"),
+        ("=DATE(ANNEE,9,15)", "Impôts (IS)",
+         "3e acompte d'IS (estimation)", f"='{TVA}'!$C$31"),
+        ("=DATE(ANNEE,12,15)", "Impôts (IS)",
+         "4e acompte d'IS (estimation)", f"='{TVA}'!$C$31"),
+        ("=DATE(ANNEE+1,5,15)", "Impôts (IS)",
+         "Solde d'IS — mai N+1 (estimation)",
+         f"=MAX(0,'{TVA}'!$C$30-4*'{TVA}'!$C$31)"),
+        ("=DATE(ANNEE,12,15)", "Impôts (CFE)",
+         "CFE annuelle (estimation)", "=CFE_ANNUELLE"),
+    ]
+
+    dv_statut = DataValidation(type="list", formula1='"À venir,Payé"',
+                               allow_blank=True)
+    ws.add_data_validation(dv_statut)
+    for i, (d_f, org, nat, amt_f) in enumerate(rows):
+        r = first + i
+        alt = BEIGE_ALT if i % 2 else BEIGE
+        ccalc(ws, f"B{r}", d_f, DATEF, bg=alt).alignment = A_C
+        c = ws[f"C{r}"]
+        c.value = org
+        c.font = F_LABEL
+        c.fill = fill(alt)
+        c.border = BORDER
+        c.alignment = A_L
+        c = ws[f"D{r}"]
+        c.value = nat
+        c.font = F_LABEL
+        c.fill = fill(alt)
+        c.border = BORDER
+        c.alignment = A_L
+        ccalc(ws, f"E{r}", amt_f, MONEY, bg=alt)
+        cin(ws, f"F{r}", "À venir")
+        dv_statut.add(f"F{r}")
+        ccalc(
+            ws, f"G{r}",
+            f'=IF($B{r}="","",IF($F{r}="Payé","✓ Payé",'
+            f'IF($B{r}<TODAY(),"Passée",'
+            f'IF($B{r}-TODAY()<7,"⚠️ URGENT — dans "&($B{r}-TODAY())&" j",'
+            f'"dans "&($B{r}-TODAY())&" j"))))', "@", bg=alt)
+        ws[f"G{r}"].alignment = A_C
+        # colonne auxiliaire masquée : date si l'échéance est à venir
+        # (permet un MIN() universel, compatible partout, sans MINIFS)
+        hc = ws[f"H{r}"]
+        hc.value = (f'=IF(AND($B{r}<>"",$F{r}<>"Payé",$B{r}>=TODAY()),'
+                    f'$B{r},"")')
+        hc.font = Font(name=FONT, size=8, color=BEIGE)
+        hc.number_format = ";;;"
+
+    ws.conditional_formatting.add(f"G{first}:G{last}", FormulaRule(
+        formula=[f'AND($B{first}<>"",$F{first}<>"Payé",'
+                 f"$B{first}>=TODAY(),$B{first}-TODAY()<15)"],
+        font=Font(name=FONT, size=10, bold=True, color=TERRA)))
+
+    merge(ws, f"B{last + 2}:J{last + 2}",
+          "Dates usuelles données à titre indicatif — vérifiez vos dates "
+          "exactes sur votre espace impots.gouv.fr et urssaf.fr.",
+          F_NOTE, BEIGE, A_LW)
+    ws.freeze_panes = "A11"
+
+
+def build_simulateurs(ws):
+    paint(ws, 6, 46)
+    ws.sheet_properties.tabColor = TAUPE
+    widths(ws, {"A": 2.5, "B": 48, "C": 18, "D": 20, "E": 3})
+    banner(ws, "E", "🧮 SIMULATEURS",
+           "En clair : testez vos idées sans risque — salaire, dividendes, "
+           "scénarios de fin d'année.")
+    tip(ws, "B3:E3",
+        "Trois mini-outils indépendants. Modifiez les cellules crème, tout "
+        "se recalcule instantanément. Aucune saisie ici ne modifie vos "
+        "autres onglets.")
+
+    is_bareme = ("IF({b}<=0,0,IF({b}<=SEUIL_IS,ROUND({b}*TAUX_IS_REDUIT,0),"
+                 "ROUND(SEUIL_IS*TAUX_IS_REDUIT+({b}-SEUIL_IS)"
+                 "*TAUX_IS_NORMAL,0)))")
+    ca_cum = f"SUM('{SUI}'!$D$7:INDEX('{SUI}'!$D$7:$D$18,{MIDX}))"
+    dep_cum = f"SUM('{SUI}'!$G$7:INDEX('{SUI}'!$G$7:$G$18,{MIDX}))"
+
+    # --- 1 · combien facturer ? -------------------------------------------
+    band(ws, "B5:D5",
+         "1 · COMBIEN FACTURER POUR ME PAYER X € NET ? (ESTIMATION)")
+    label(ws, "B6", "Salaire net mensuel souhaité")
+    cin(ws, "C6", "=SALAIRE_NET", MONEY0)
+    label(ws, "B7", "+ Cotisations sociales estimées (selon votre statut)")
+    ccalc(ws, "C7", "=ROUND($C$6*TAUX_CHARGES,2)", MONEY0)
+    label(ws, "B8", "→ Coût total de votre rémunération", bold=True)
+    ccalc(ws, "C8", "=$C$6+$C$7", MONEY0, bold=True)
+    label(ws, "B9", "+ Frais de fonctionnement mensuels moyens (auto)")
+    ccalc(ws, "C9",
+          f"=IFERROR(IF('{DEP}'!$O$6>0,'{DEP}'!$O$6/{MIDX},"
+          f"('{BUD}'!$O$31-'{BUD}'!$O$24-'{BUD}'!$O$25)/12),0)", MONEY0)
+    label(ws, "B10", "+ Marge de sécurité mensuelle (modifiable)")
+    cin(ws, "C10", 300, MONEY0)
+    label(ws, "B11", "+ Provision d'IS indicative sur cette marge")
+    ccalc(ws, "C11",
+          "=IFERROR(IF($C$10*12<=SEUIL_IS,ROUND($C$10*TAUX_IS_REDUIT,2),"
+          "ROUND((SEUIL_IS*TAUX_IS_REDUIT+($C$10*12-SEUIL_IS)"
+          "*TAUX_IS_NORMAL)/12,2)),0)", MONEY0)
+    label(ws, "B12", "→ CA HT à facturer chaque mois", bold=True)
+    ws["B12"].font = F_TOTAL
+    ccalc(ws, "C12", "=ROUND(SUM($C$8:$C$11),0)", MONEY0, bold=True,
+          font=Font(name=FONT, size=13, bold=True, color=BORDEAUX))
+    label(ws, "B13", "Jours facturables par mois (modifiable)")
+    cin(ws, "C13", 18, "0")
+    label(ws, "B14", "→ Tarif jour indicatif (TJM)", bold=True)
+    ccalc(ws, "C14", "=IFERROR(ROUND($C$12/$C$13,0),0)", MONEY0,
+          bold=True, font=F_TOTAL)
+    merge(ws, "B15:D15",
+          "Estimation hors TVA. Les frais moyens viennent de vos dépenses "
+          "saisies (ou de votre budget en tout début d'année).",
+          F_NOTE, BEIGE, A_LW)
+    box(ws, 5, 2, 15, 4, TAUPE)
+
+    # --- 2 · rémunération vs dividendes -------------------------------------
+    band(ws, "B18:D18",
+         "2 · RÉMUNÉRATION OU DIVIDENDES ? (COMPARATEUR INDICATIF)")
+    label(ws, "B19",
+          "Enveloppe annuelle disponible (avant charges et impôts)")
+    cin(ws, "C19", 30000, MONEY0)
+    label(ws, "B20", "Option A — Rémunération : net perçu sur l'année",
+          bold=True)
+    ccalc(ws, "C20", "=ROUND($C$19/(1+TAUX_CHARGES),0)", MONEY0,
+          bold=True, font=F_TOTAL)
+    merge(ws, "B21:D21",
+          "Les cotisations versées financent votre retraite, votre "
+          "maladie et votre protection sociale.", F_NOTE, BEIGE, A_LW)
+    label(ws, "B22", "Option B — IS payé d'abord par la société")
+    ccalc(ws, "C22", "=" + is_bareme.format(b="$C$19"), MONEY0)
+    label(ws, "B23", "Option B — Dividendes distribuables (après IS)")
+    ccalc(ws, "C23", "=$C$19-$C$22", MONEY0)
+    label(ws, "B24", "Option B — Flat tax (PFU, taux en ⚙️ Paramètres)")
+    ccalc(ws, "C24", "=ROUND($C$23*FLAT_TAX,0)", MONEY0)
+    label(ws, "B25", "Option B — Dividendes : net perçu sur l'année",
+          bold=True)
+    ccalc(ws, "C25", "=$C$23-$C$24", MONEY0, bold=True, font=F_TOTAL)
+    label(ws, "B26", "Verdict indicatif", bold=True)
+    merge(ws, "C26:D26",
+          '=IF($C$20>=$C$25,"Rémunération : +"&ROUND($C$20-$C$25,0)'
+          '&" € net","Dividendes : +"&ROUND($C$25-$C$20,0)&" € net")',
+          Font(name=FONT, size=11, bold=True, color=BORDEAUX), BEIGE_ALT,
+          A_C, BORDER)
+    merge(ws, "B27:D28",
+          "Comparateur simplifié à visée pédagogique — l'arbitrage réel "
+          "dépend de votre situation (retraite, protection sociale, "
+          "abattements, autres revenus…). Parlez-en à un "
+          "expert-comptable.", F_NOTE, BEIGE, A_LW)
+    box(ws, 18, 2, 28, 4, TAUPE)
+
+    # --- 3 · et si… ? ---------------------------------------------------------
+    band(ws, "B30:D30", "3 · ET SI… ? (PROJECTION DE FIN D'ANNÉE)")
+    head(ws, "C31", "Votre hypothèse", TAUPE)
+    head(ws, "D31", "Au rythme actuel (auto)", TAUPE)
+    label(ws, "B32", "CA mensuel pour les mois restants")
+    cin(ws, "C32", 8000, MONEY0)
+    ccalc(ws, "D32", f"=IFERROR({ca_cum}/{MIDX},0)", MONEY0)
+    label(ws, "B33", "Dépenses mensuelles (hors rémunération) restantes")
+    cin(ws, "C33", 1500, MONEY0)
+    ccalc(ws, "D33", f"=IFERROR('{DEP}'!$O$6/{MIDX},0)", MONEY0)
+    label(ws, "B34", "Mois restants dans l'année")
+    merge(ws, "C34:D34", f"=12-{MIDX}",
+          F_CALC_B, BEIGE_ALT, A_C, BORDER).number_format = "0"
+    label(ws, "B35", "CA annuel projeté")
+    ccalc(ws, "C35", f"={ca_cum}+$C$32*(12-{MIDX})", MONEY0)
+    ccalc(ws, "D35", f"={ca_cum}+$D$32*(12-{MIDX})", MONEY0)
+    label(ws, "B36", "Dépenses annuelles projetées (avec rémunération)")
+    ccalc(ws, "C36",
+          f"={dep_cum}+($C$33+ROUND(SALAIRE_NET*(1+TAUX_CHARGES),2))"
+          f"*(12-{MIDX})", MONEY0)
+    ccalc(ws, "D36",
+          f"={dep_cum}+($D$33+ROUND(SALAIRE_NET*(1+TAUX_CHARGES),2))"
+          f"*(12-{MIDX})", MONEY0)
+    label(ws, "B37", "Résultat annuel projeté", bold=True)
+    ccalc(ws, "C37", "=$C$35-$C$36", MONEY0, bold=True, font=F_TOTAL)
+    ccalc(ws, "D37", "=$D$35-$D$36", MONEY0, bold=True, font=F_TOTAL)
+    label(ws, "B38", "IS estimé sur ce résultat")
+    ccalc(ws, "C38", "=" + is_bareme.format(b="$C$37"), MONEY0)
+    ccalc(ws, "D38", "=" + is_bareme.format(b="$D$37"), MONEY0)
+    label(ws, "B39", "Trésorerie estimée fin d'année (hors TVA)",
+          bold=True)
+    ccalc(ws, "C39",
+          f"=IFERROR(INDEX('{TRE}'!$C$20:$N$20,{MIDX})"
+          f"+($C$35-{ca_cum})-($C$36-{dep_cum})-$C$38,0)", MONEY0,
+          bold=True, font=F_TOTAL)
+    ccalc(ws, "D39",
+          f"=IFERROR(INDEX('{TRE}'!$C$20:$N$20,{MIDX})"
+          f"+($D$35-{ca_cum})-($D$36-{dep_cum})-$D$38,0)", MONEY0,
+          bold=True, font=F_TOTAL)
+    ws.conditional_formatting.add("C39:D39", CellIsRule(
+        operator="lessThan", formula=["0"],
+        font=Font(name=FONT, size=10, bold=True, color=TERRA)))
+    merge(ws, "B40:D41",
+          "Projection simplifiée : elle suppose des encaissements "
+          "immédiats et ne tient pas compte de la TVA. Utilisez-la pour "
+          "comparer des scénarios, pas comme une prévision exacte.",
+          F_NOTE, BEIGE, A_LW)
+    box(ws, 30, 2, 41, 4, TAUPE)
+
+
+LEXIQUE = [
+    ("HT / TTC", "HT = hors taxes, TTC = toutes taxes comprises. Ex. : "
+     "1 000 € HT à 20 % de TVA = 1 200 € TTC."),
+    ("TVA collectée", "La TVA que vous facturez à vos clients pour le "
+     "compte de l'État. Ex. : sur une facture de 1 200 € TTC à 20 %, la "
+     "TVA collectée est de 200 €."),
+    ("TVA déductible", "La TVA payée sur vos achats professionnels, que "
+     "vous pouvez récupérer. Ex. : 24 € de TVA sur un logiciel à "
+     "120 € HT."),
+    ("TVA à décaisser", "TVA collectée − TVA déductible = ce que vous "
+     "reversez réellement à l'État."),
+    ("Franchise en base de TVA", "Régime où vous ne facturez pas de TVA "
+     "(sous certains seuils de CA). Plus simple, mais TVA non récupérable "
+     "sur vos achats."),
+    ("Réel simplifié", "Régime de TVA avec 2 acomptes par an (juillet et "
+     "décembre) et une déclaration annuelle (CA12)."),
+    ("Réel normal", "Régime de TVA avec déclaration et paiement chaque "
+     "mois (ou chaque trimestre)."),
+    ("IS (impôt sur les sociétés)", "L'impôt payé par la société sur ses "
+     "bénéfices : 15 % jusqu'à 42 500 € sous conditions, 25 % au-delà "
+     "(taux indicatifs, modifiables en ⚙️ Paramètres)."),
+    ("Acompte", "Un paiement anticipé. L'IS se paie en 4 acomptes "
+     "trimestriels, régularisés l'année suivante."),
+    ("CFE", "Cotisation foncière des entreprises : taxe locale annuelle "
+     "due par presque toutes les sociétés, payée au 15 décembre."),
+    ("URSSAF", "L'organisme qui collecte les cotisations sociales "
+     "(retraite, maladie, famille…)."),
+    ("Cotisations sociales", "Les prélèvements calculés sur la "
+     "rémunération, qui financent votre protection sociale."),
+    ("Assimilé salarié", "Statut du président de SASU : protection "
+     "sociale proche de celle d'un salarié, cotisations plus élevées "
+     "(≈ 82 % du net, indicatif)."),
+    ("TNS", "Travailleur non salarié : statut du gérant majoritaire de "
+     "SARL. Cotisations plus faibles (≈ 45 % du net, indicatif), "
+     "protection différente."),
+    ("Charge déductible", "Une dépense professionnelle qui réduit votre "
+     "bénéfice imposable. Ex. : logiciel, loyer, honoraires."),
+    ("Amortissement", "Étaler le coût d'un gros achat (ordinateur, "
+     "véhicule…) sur plusieurs années comptables."),
+    ("Immobilisation", "Un bien durable acheté par l'entreprise, qui "
+     "s'amortit sur plusieurs années au lieu de passer en charge d'un "
+     "coup."),
+    ("Trésorerie", "L'argent réellement disponible sur le compte de la "
+     "société. On peut être rentable et à sec : surveillez-la."),
+    ("Runway", "Le nombre de mois pendant lesquels vous pouvez tenir "
+     "avec la trésorerie actuelle, au rythme de dépenses actuel."),
+    ("BFR", "Besoin en fonds de roulement : l'argent immobilisé entre le "
+     "moment où vous payez vos charges et celui où vos clients vous "
+     "paient."),
+    ("Marge nette", "Résultat ÷ chiffre d'affaires. Ex. : 12 000 € de "
+     "résultat pour 100 000 € de CA = 12 % de marge nette."),
+    ("Seuil de rentabilité", "Le chiffre d'affaires minimum pour couvrir "
+     "toutes vos charges. En dessous, vous perdez de l'argent."),
+    ("Prévisionnel", "Ce que vous prévoyez (votre budget). Le "
+     "« réalisé », c'est ce qui s'est vraiment passé."),
+    ("Écart", "Réalisé − prévu. Dans ce fichier, un écart positif est "
+     "toujours favorable."),
+    ("Provision", "De l'argent mis de côté pour une dépense certaine à "
+     "venir (TVA, URSSAF, IS…). La clé pour dormir tranquille."),
+    ("Dividende", "La part du bénéfice (après IS) versée aux associés, "
+     "soumise à la flat tax."),
+    ("Flat tax (PFU)", "Prélèvement forfaitaire unique de 30 % "
+     "(indicatif) sur les dividendes : impôt + prélèvements sociaux en "
+     "une fois."),
+    ("Exercice", "La période comptable de 12 mois de la société, souvent "
+     "l'année civile."),
+    ("Note de frais", "Le document qui permet de vous faire rembourser "
+     "une dépense professionnelle payée avec votre argent personnel."),
+    ("Indemnité kilométrique", "Remboursement forfaitaire de vos trajets "
+     "professionnels effectués avec votre véhicule personnel, selon le "
+     "barème officiel."),
+    ("Comptabilité d'engagement", "On enregistre les factures à leur "
+     "date d'émission, pas à leur date de paiement (contraire : "
+     "comptabilité de trésorerie)."),
+    ("Rapprochement bancaire", "Vérifier que votre suivi correspond "
+     "bien, ligne à ligne, au relevé de la banque."),
+]
+
+
+def build_lexique(ws):
+    paint(ws, 4, len(LEXIQUE) + 12)
+    ws.sheet_properties.tabColor = TAUPE
+    widths(ws, {"A": 2.5, "B": 30, "C": 100, "D": 3})
+    banner(ws, "C", "📖 LEXIQUE",
+           "En clair : tous les mots de la gestion expliqués simplement, "
+           "avec des exemples.")
+    tip(ws, "B3:C3",
+        "Un terme vous échappe dans le fichier ou chez votre banquier ? "
+        "Il est expliqué ici, sans jargon.")
+    head(ws, "B5", "Terme", TAUPE)
+    head(ws, "C5", "En clair", TAUPE)
+    for i, (terme, defi) in enumerate(LEXIQUE):
+        r = 6 + i
+        alt = BEIGE_ALT if i % 2 else BEIGE
+        c = ws[f"B{r}"]
+        c.value = terme
+        c.font = F_LABEL_B
+        c.fill = fill(alt)
+        c.border = BORDER
+        c.alignment = Alignment(horizontal="left", vertical="top")
+        c = ws[f"C{r}"]
+        c.value = defi
+        c.font = F_LABEL
+        c.fill = fill(alt)
+        c.border = BORDER
+        c.alignment = A_LW
+        ws.row_dimensions[r].height = 28
+    ws.freeze_panes = "A6"
 
 
 # ===================================================================== main ==
@@ -1224,18 +1990,23 @@ def main():
     wb = Workbook()
     ws_dash = wb.active
     ws_dash.title = DASH
-    for name in (PAR, BUD, REC, DEP, SUI, TRE, TVA, KM):
+    for name in (START, PAR, BUD, REC, DEP, SUI, TRE, TVA, ECH, SIM, KM,
+                 LEX):
         wb.create_sheet(name)
 
     build_parametres(wb[PAR])
     define_names(wb)
+    build_start(wb[START])
     build_budget(wb[BUD])
     build_recettes(wb[REC])
     build_depenses(wb[DEP])
     build_suivi(wb[SUI])
     build_tresorerie(wb[TRE])
     build_tva(wb[TVA])
+    build_echeancier(wb[ECH])
+    build_simulateurs(wb[SIM])
     build_km(wb[KM])
+    build_lexique(wb[LEX])
     build_dashboard(ws_dash)
 
     wb.active = 0
