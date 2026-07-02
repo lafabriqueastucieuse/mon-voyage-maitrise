@@ -12,7 +12,11 @@ La Fabrique Astucieuse — outil premium de gestion financière SASU/SARL.
 import datetime as dt
 
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, LineChart, Reference, Series
+from openpyxl.chart import (BarChart, DoughnutChart, LineChart, Reference,
+                            Series)
+from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.marker import Marker
+from openpyxl.chart.series import DataPoint
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.drawing.line import LineProperties
 from openpyxl.drawing.text import CharacterProperties
@@ -148,8 +152,12 @@ def banner(ws, last_col, title, subtitle):
           Alignment(horizontal="left", vertical="bottom", indent=1))
     merge(ws, f"A2:{last_col}2", subtitle, F_SUB, BORDEAUX,
           Alignment(horizontal="left", vertical="top", indent=1))
-    ws.row_dimensions[1].height = 30
-    ws.row_dimensions[2].height = 16
+    ws.row_dimensions[1].height = 32
+    ws.row_dimensions[2].height = 18
+    # liseré terracotta sous le bandeau : la signature visuelle du fichier
+    accent = Side(style="medium", color=TERRA)
+    for c in ws[f"A2:{last_col}2"][0]:
+        c.border = Border(bottom=accent)
 
 
 def tip(ws, rng, text):
@@ -1171,19 +1179,23 @@ def build_km(ws):
 # ================================================================ DASHBOARD ==
 
 def kpi_card(ws, col1, col2, r, titre, formule, fmt, sous_titre):
-    merge(ws, f"{col1}{r}:{col2}{r}", titre.upper(), F_KPI_LAB, CREME, A_C)
-    v = merge(ws, f"{col1}{r + 1}:{col2}{r + 1}", formule, F_KPI_VAL, CREME,
+    """Carte KPI premium : bandeau bordeaux, gros chiffre, sous-titre."""
+    merge(ws, f"{col1}{r}:{col2}{r}", titre.upper(),
+          Font(name=FONT, size=8, bold=True, color="FFFFFF"), BORDEAUX,
+          A_C)
+    v = merge(ws, f"{col1}{r + 1}:{col2}{r + 1}", formule,
+              Font(name=FONT, size=16, bold=True, color=BORDEAUX), CREME,
               A_C)
     v.number_format = fmt
     merge(ws, f"{col1}{r + 2}:{col2}{r + 2}", sous_titre, F_KPI_SUB, CREME,
           A_CW)
     c1 = ws[f"{col1}{r}"].column
     c2 = ws[f"{col2}{r}"].column
-    box(ws, r, c1, r + 2, c2, TAUPE_L)
+    box(ws, r, c1, r + 2, c2, TAUPE)
 
 
 def build_dashboard(ws):
-    paint(ws, 17, 50)
+    paint(ws, 17, 66)
     ws.sheet_properties.tabColor = BORDEAUX
     widths(ws, {"A": 2.5, "N": 3, "P": 30, "Q": 14})
     for cl in "BCDEFGHIJKLM":
@@ -1194,7 +1206,7 @@ def build_dashboard(ws):
 
     # rappel de la configuration (onglet 🚀 Démarrer ici) + zone 1
     c = ws["B3"]
-    c.value = "VUE D'ENSEMBLE"
+    c.value = "V U E   D ' E N S E M B L E"
     c.font = Font(name=FONT, size=9, bold=True, color=TAUPE)
     c.alignment = A_L
     merge(ws, "K3:M3",
@@ -1225,10 +1237,10 @@ def build_dashboard(ws):
              f"&'{ECH}'!$J$8&\" j\")")
     ws.conditional_formatting.add("F5", CellIsRule(
         operator="lessThan", formula=["0"],
-        font=Font(name=FONT, size=15, bold=True, color=TERRA)))
+        font=Font(name=FONT, size=16, bold=True, color=TERRA)))
     ws.conditional_formatting.add("H5", CellIsRule(
         operator="lessThan", formula=["0"],
-        font=Font(name=FONT, size=15, bold=True, color=TERRA)))
+        font=Font(name=FONT, size=16, bold=True, color=TERRA)))
 
     # --- zone de calcul (colonnes P/Q, hors écran principal) ----------------
     tiny = Font(name=FONT, size=8, color=TAUPE)
@@ -1326,7 +1338,8 @@ def build_dashboard(ws):
         box(ws, 8, col1, 9, col2, TAUPE_L)
 
     # --- zone 2 : santé & recommandations -----------------------------------
-    band(ws, "B11:M11", "SANTÉ & RECOMMANDATIONS", TAUPE)
+    band(ws, "B11:M11", "S A N T É   &   R E C O M M A N D A T I O N S",
+         TAUPE)
     merge(ws, "B12:C12", "🩺 SANTÉ FINANCIÈRE", F_KPI_LAB, CREME, A_C)
     merge(ws, "D12:G12",
           '=IF($Q$19=0,"— en attente de données",IF($Q$25>=75,'
@@ -1418,11 +1431,11 @@ def build_dashboard(ws):
     box(ws, 12, 8, 18, 13, TAUPE)
 
     # --- zone 3 : analyses ----------------------------------------------------
-    band(ws, "B20:M20", "ANALYSES", TAUPE)
+    band(ws, "B20:M20", "A N A L Y S E S", TAUPE)
 
-    def style_chart(chart, title):
-        """Types natifs simples, fond beige sans bordure, titre bordeaux —
-        importables tels quels dans Google Sheets."""
+    def style_chart(chart, title, gridlines=True):
+        """Types natifs simples, fond beige sans bordure, titre bordeaux,
+        quadrillage discret — importables tels quels dans Google Sheets."""
         chart.title = title
         try:
             para = chart.title.tx.rich.p[0]
@@ -1434,6 +1447,10 @@ def build_dashboard(ws):
             pass
         chart.graphical_properties = GraphicalProperties(
             solidFill=BEIGE, ln=LineProperties(noFill=True))
+        if gridlines:
+            chart.y_axis.majorGridlines = ChartLines(
+                spPr=GraphicalProperties(
+                    ln=LineProperties(solidFill=TAUPE_L, w=9525)))
 
     bar = BarChart()
     bar.type = "col"
@@ -1467,6 +1484,10 @@ def build_dashboard(ws):
     s3.graphicalProperties.line.solidFill = BORDEAUX
     s3.graphicalProperties.line.width = 28575
     s3.smooth = True
+    s3.marker = Marker(symbol="circle", size=5,
+                       spPr=GraphicalProperties(
+                           solidFill=TERRA,
+                           ln=LineProperties(solidFill=CREME, w=9525)))
     line.append(s3)
     line.set_categories(Reference(tre, min_col=3, max_col=14, min_row=5,
                                   max_row=5))
@@ -1546,23 +1567,43 @@ def build_dashboard(ws):
               f'&REPT("░",10-ROUND({share}*10,0))),"")',
               Font(name=FONT, size=9, color=BORDEAUX), CREME, A_L, BORDER)
 
+    # --- donut : répartition des 5 plus grosses dépenses ---------------------
+    pie = DoughnutChart(holeSize=58)
+    style_chart(pie, "Où part votre argent ? (Top 5)", gridlines=False)
+    pie.add_data(Reference(ws, min_col=11, min_row=40, max_row=44),
+                 titles_from_data=False)
+    pie.set_categories(Reference(ws, min_col=9, min_row=40, max_row=44))
+    pie.series[0].data_points = [
+        DataPoint(idx=i, spPr=GraphicalProperties(
+            solidFill=col, ln=LineProperties(solidFill=CREME, w=19050)))
+        for i, col in enumerate([BORDEAUX, TERRA, TAUPE, SAUGE, TAUPE_L])
+    ]
+    pie.legend.position = "r"
+    pie.width = 13.2
+    pie.height = 7.4
+    ws.add_chart(pie, "B46")
+
     # --- indemnités km + jauge budget ----------------------------------------
-    merge(ws, "B45:G45",
+    merge(ws, "I46:M46",
           f'="🚗 Indemnités kilométriques : "&ROUND(\'{KM}\'!$I$7,0)'
           f'&" km · "&ROUND(\'{KM}\'!$I$8,0)&" € (estimation)"',
           F_LABEL_B, BEIGE_ALT, A_L, BORDER)
-    label(ws, "I45", "Budget annuel consommé")
-    ccalc(ws, "K45", f"=IFERROR('{SUI}'!$G$19/'{BUD}'!$O$31,0)", PCT0,
+    label(ws, "I48", "Budget annuel consommé")
+    ccalc(ws, "K48", f"=IFERROR('{SUI}'!$G$19/'{BUD}'!$O$31,0)", PCT0,
           bold=True)
     # barre de progression 100 % formule (compatible Excel + Google Sheets)
-    gauge = "MIN(1,MAX(0,$K$45))"
-    merge(ws, "L45:M45",
+    gauge = "MIN(1,MAX(0,$K$48))"
+    merge(ws, "L48:M48",
           f'=REPT("█",ROUND({gauge}*20,0))'
           f'&REPT("░",20-ROUND({gauge}*20,0))',
           Font(name=FONT, size=9, color=BORDEAUX), CREME, A_L, BORDER)
+    merge(ws, "I50:M50",
+          '="💶 En attente d\'encaissement : "&ROUND($Q$16,0)&" € — '
+          'pensez aux relances."',
+          F_NOTE, BEIGE, A_LW)
 
     # --- disclaimer -----------------------------------------------------------
-    merge(ws, "B47:M47",
+    merge(ws, "B62:M62",
           "Outil de pilotage et d'estimation. Les montants de TVA, IS, CFE "
           "et cotisations sont indicatifs et ne remplacent pas l'avis d'un "
           "expert-comptable.", F_NOTE, BEIGE, A_CW)
