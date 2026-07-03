@@ -14,7 +14,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-SRC = Path("Gestion-SASU-SARL-2026.xlsx")
+SRC = Path(sys.argv[1] if len(sys.argv) > 1
+           else "Gestion-SASU-SARL-2026.xlsx")
 NS = {
     "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
     "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",

@@ -18,8 +18,10 @@ from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.marker import Marker
 from openpyxl.chart.series import DataPoint
 from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
 from openpyxl.drawing.line import LineProperties
-from openpyxl.drawing.text import CharacterProperties
+from openpyxl.drawing.text import (CharacterProperties, Paragraph,
+                                   ParagraphProperties, RichTextProperties)
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -80,6 +82,12 @@ KM_FIRST, KM_LAST = 10, 159      # 150 lignes
 
 # index du mois « en cours » borné à l'année de gestion
 MIDX = "IF(YEAR(TODAY())>ANNEE,12,IF(YEAR(TODAY())<ANNEE,1,MONTH(TODAY())))"
+
+# ------------------------------------------------------------- variantes ---
+# VARIANT est défini par main() avant chaque construction :
+# « vitrine » = démo d'une année qui roule (captures boutique),
+# « alertes » = démo qui déclenche les alarmes (contrôle qualité).
+VARIANT = {}
 
 # ----------------------------------------------------------------- styles ---
 
@@ -343,8 +351,6 @@ def build_start(ws):
 
     # --- vérifications automatiques anti-erreurs ------------------------
     tiny = Font(name=FONT, size=8, color=TAUPE)
-    merge(ws, "K33:M33", "Zone de calcul — ne pas supprimer (valeur / "
-          "seuil)", tiny, BEIGE, A_L)
     rec_e = f"'{REC}'!$E${REC_FIRST}:$E${REC_LAST}"
     rec_f = f"'{REC}'!$F${REC_FIRST}:$F${REC_LAST}"
     rec_h = f"'{REC}'!$H${REC_FIRST}:$H${REC_LAST}"
@@ -427,10 +433,11 @@ def build_start(ws):
             formula=[f'LEFT($B{r},1)="⚠"'],
             font=Font(name=FONT, size=9, bold=True, color=TERRA)))
     merge(ws, "B40:I40",
-          "Contrôles indicatifs pour repérer les oublis fréquents — "
-          "seuils modifiables dans la zone de calcul à droite.",
+          "Contrôles indicatifs pour repérer les oublis fréquents.",
           F_NOTE, BEIGE, A_LW)
     box(ws, 33, 2, 40, 9, TAUPE)
+    for col in ("K", "L", "M"):
+        ws.column_dimensions[col].hidden = True
 
 
 # ============================================================== PARAMÈTRES ==
@@ -457,7 +464,7 @@ def build_parametres(ws):
     label(ws, "B8", "Année de gestion")
     cin(ws, "C8", 2026, "0")
     label(ws, "B9", "Solde de trésorerie au 01/01")
-    cin(ws, "C9", 12500, MONEY)
+    cin(ws, "C9", VARIANT["solde_init"], MONEY)
 
     # --- fiscalité -----------------------------------------------------
     band(ws, "B11:C11", "TVA & fiscalité")
@@ -694,6 +701,10 @@ def build_budget(ws):
         ccalc(ws, f"{cl}34", f"={prev}{cl}33", MONEY0, bold=True)
     ccalc(ws, "O33", "=O12-O31", MONEY0, bold=True)
     ccalc(ws, "O34", "=N34", MONEY0, bold=True)
+    for _r in (6, 15):
+        ws.row_dimensions[_r].height = 26
+    for _r in range(7, 35):
+        ws.row_dimensions[_r].height = 18
     ws.freeze_panes = "C7"
 
 
@@ -765,9 +776,9 @@ def synth_block(ws, label_ht, label_ttc, f_ht, f_ttc):
 def build_recettes(ws):
     paint(ws, 16, REC_LAST + 6)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 12, "C": 22, "D": 34, "E": 13, "F": 9.5,
-                "G": 12, "H": 13, "I": 11, "J": 7.5, "K": 3,
-                "L": 10.5, "M": 10.5, "N": 10.5, "O": 12})
+    widths(ws, {"A": 2.5, "B": 13.5, "C": 22, "D": 34, "E": 13,
+                "F": 10.5, "G": 12, "H": 13, "I": 11, "J": 10.5,
+                "K": 10.5, "L": 10.5, "M": 10.5, "N": 10.5, "O": 12})
     banner(ws, "O", "💰 RECETTES",
            "En clair : tout ce que vous facturez à vos clients — la source "
            "de votre chiffre d'affaires.")
@@ -805,7 +816,7 @@ def build_recettes(ws):
         cin(ws, f"I{r}")
         ccalc(ws, f"J{r}", f'=IF($B{r}="","",MONTH($B{r}))', "0", bg=alt)
 
-    for i, s in enumerate(REC_SAMPLES):
+    for i, s in enumerate(VARIANT["recettes"]):
         r = REC_FIRST + i
         ws[f"B{r}"] = s[0]
         ws[f"C{r}"] = s[1]
@@ -822,15 +833,20 @@ def build_recettes(ws):
     ws.add_data_validation(dv_enc)
     dv_tva.add(f"F{REC_FIRST}:F{REC_LAST}")
     dv_enc.add(f"I{REC_FIRST}:I{REC_LAST}")
+    for _r in (5, 6, 7):
+        ws.row_dimensions[_r].height = 20
+    ws.row_dimensions[9].height = 26
+    for _r in range(REC_FIRST, REC_LAST + 1):
+        ws.row_dimensions[_r].height = 18
     ws.freeze_panes = "A10"
 
 
 def build_depenses(ws):
     paint(ws, 16, DEP_LAST + 6)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 12, "C": 20, "D": 26, "E": 30, "F": 13,
-                "G": 9.5, "H": 13, "I": 13, "J": 10, "K": 7.5, "L": 3,
-                "M": 10.5, "N": 10.5, "O": 12})
+    widths(ws, {"A": 2.5, "B": 13.5, "C": 20, "D": 26, "E": 30,
+                "F": 13, "G": 10.5, "H": 13, "I": 13, "J": 10.5,
+                "K": 10.5, "L": 10.5, "M": 10.5, "N": 10.5, "O": 12})
     banner(ws, "O", "💸 DÉPENSES",
            "En clair : tout ce que l'entreprise dépense — pour garder la "
            "main sur vos coûts.")
@@ -883,7 +899,7 @@ def build_depenses(ws):
         cin(ws, f"J{r}")
         ccalc(ws, f"K{r}", f'=IF($B{r}="","",MONTH($B{r}))', "0", bg=alt)
 
-    for i, s in enumerate(DEP_SAMPLES):
+    for i, s in enumerate(VARIANT["depenses"]):
         r = DEP_FIRST + i
         ws[f"B{r}"] = s[0]
         ws[f"C{r}"] = s[1]
@@ -904,6 +920,11 @@ def build_depenses(ws):
                     (dv_pay, f"J{DEP_FIRST}:J{DEP_LAST}")]:
         ws.add_data_validation(dv)
         dv.add(rng)
+    for _r in (5, 6, 7):
+        ws.row_dimensions[_r].height = 20
+    ws.row_dimensions[9].height = 26
+    for _r in range(DEP_FIRST, DEP_LAST + 1):
+        ws.row_dimensions[_r].height = 18
     ws.freeze_panes = "A10"
 
 
@@ -981,6 +1002,9 @@ def build_suivi(ws):
             operator="greaterThanOrEqual", formula=["0"], font=sauge_f))
         ws.conditional_formatting.add(rng, CellIsRule(
             operator="lessThan", formula=["0"], font=terra_f))
+    ws.row_dimensions[6].height = 24
+    for _r in range(7, 20):
+        ws.row_dimensions[_r].height = 20
     ws.freeze_panes = "C7"
 
 
@@ -989,9 +1013,9 @@ def build_suivi(ws):
 def build_tresorerie(ws):
     paint(ws, 16, 28)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 36, "O": 13, "P": 3})
+    widths(ws, {"A": 2.5, "B": 36, "O": 14, "P": 3})
     for cl in month_cols():
-        ws.column_dimensions[cl].width = 11
+        ws.column_dimensions[cl].width = 13
     banner(ws, "O", "🏦 PLAN DE TRÉSORERIE",
            "En clair : combien il y a réellement sur le compte, mois par "
            "mois — le nerf de la guerre.")
@@ -1063,6 +1087,9 @@ def build_tresorerie(ws):
         stopIfTrue=True))
     ws.conditional_formatting.add("C20:O20", CellIsRule(
         operator="lessThan", formula=["1000"], fill=fill(ORANGE_L)))
+    ws.row_dimensions[5].height = 26
+    for _r in range(6, 21):
+        ws.row_dimensions[_r].height = 20
     ws.freeze_panes = "C6"
 
 
@@ -1071,8 +1098,8 @@ def build_tresorerie(ws):
 def build_tva(ws):
     paint(ws, 11, 36)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 30, "C": 15, "D": 15, "E": 15, "F": 3,
-                "G": 26, "H": 16, "I": 3})
+    widths(ws, {"A": 2.5, "B": 36, "C": 15.5, "D": 15.5, "E": 15.5,
+                "F": 3, "G": 30, "H": 16, "I": 3})
     banner(ws, "H", "🧾 TVA & IMPÔTS",
            "En clair : ce que vous devrez reverser (TVA, URSSAF, IS, CFE) "
            "— estimé d'avance pour éviter les surprises.")
@@ -1177,6 +1204,9 @@ def build_tva(ws):
     label(ws, "G22", "Montant estimé (⚙️ Paramètres)")
     ccalc(ws, "H22", "=CFE_ANNUELLE", MONEY)
     label(ws, "G23", "Échéance")
+    ws.row_dimensions[6].height = 24
+    for _r in range(7, 20):
+        ws.row_dimensions[_r].height = 20
     c = ws["H23"]
     c.value = "15 décembre"
     c.font = F_CALC_B
@@ -1252,7 +1282,7 @@ def build_km(ws):
         cin(ws, f"E{r}").alignment = A_L
         cin(ws, f"F{r}", fmt=KMF)
 
-    for i, s in enumerate(KM_SAMPLES):
+    for i, s in enumerate(VARIANT["km"]):
         r = KM_FIRST + i
         ws[f"B{r}"] = s[0]
         ws[f"C{r}"] = s[1]
@@ -1266,20 +1296,22 @@ def build_km(ws):
         allow_blank=True)
     ws.add_data_validation(dv_cv)
     dv_cv.add("I6")
+    ws.row_dimensions[9].height = 26
+    for _r in range(KM_FIRST, KM_LAST + 1):
+        ws.row_dimensions[_r].height = 18
     ws.freeze_panes = "A10"
 
 
 # ================================================================ DASHBOARD ==
 
 def kpi_card(ws, col1, col2, r, titre, formule, fmt, sous_titre):
-    """Carte KPI premium : bandeau bordeaux, gros chiffre, sous-titre."""
-    merge(ws, f"{col1}{r}:{col2}{r}", titre.upper(),
-          Font(name=FONT, size=8, bold=True, color="FFFFFF"), BORDEAUX,
-          A_C)
-    v = merge(ws, f"{col1}{r + 1}:{col2}{r + 1}", formule,
-              Font(name=FONT, size=16, bold=True, color=BORDEAUX), CREME,
+    """Carte KPI « logiciel » : gros chiffre d'abord, libellé discret."""
+    v = merge(ws, f"{col1}{r}:{col2}{r}", formule,
+              Font(name=FONT, size=20, bold=True, color=BORDEAUX), CREME,
               A_C)
     v.number_format = fmt
+    merge(ws, f"{col1}{r + 1}:{col2}{r + 1}", titre.upper(),
+          Font(name=FONT, size=8.5, bold=True, color=TAUPE), CREME, A_C)
     merge(ws, f"{col1}{r + 2}:{col2}{r + 2}", sous_titre, F_KPI_SUB, CREME,
           A_CW)
     c1 = ws[f"{col1}{r}"].column
@@ -1290,9 +1322,9 @@ def kpi_card(ws, col1, col2, r, titre, formule, fmt, sous_titre):
 def build_dashboard(ws):
     paint(ws, 19, 74)
     ws.sheet_properties.tabColor = BORDEAUX
-    widths(ws, {"A": 2.5, "N": 3, "P": 30, "Q": 14})
+    widths(ws, {"A": 3, "N": 3, "P": 30, "Q": 14})
     for cl in "BCDEFGHIJKLM":
-        ws.column_dimensions[cl].width = 12.5
+        ws.column_dimensions[cl].width = 13.5
     banner(ws, "N", '="🏠  "&UPPER(NOM_ENT)&" — TABLEAU DE BORD "&ANNEE',
            "En clair : toute votre entreprise en un coup d'œil — santé, "
            "alertes et chiffres clés.")
@@ -1309,9 +1341,10 @@ def build_dashboard(ws):
           Alignment(horizontal="right", vertical="center"))
 
     # --- cartes KPI --------------------------------------------------------
-    ws.row_dimensions[4].height = 16
-    ws.row_dimensions[5].height = 26
-    ws.row_dimensions[6].height = 22
+    ws.row_dimensions[4].height = 30
+    ws.row_dimensions[5].height = 13
+    ws.row_dimensions[6].height = 13
+    ws.row_dimensions[7].height = 8
     kpi_card(ws, "B", "C", 4, "CA réalisé (HT)",
              f"='{SUI}'!$D$19", MONEY0, "chiffre d'affaires facturé")
     kpi_card(ws, "D", "E", 4, "Dépenses réalisées",
@@ -1325,19 +1358,18 @@ def build_dashboard(ws):
              f"='{TVA}'!$H$13", MONEY0, "estimation — mois en cours")
     kpi_card(ws, "L", "M", 4, "Prochaine échéance",
              f"=IF('{ECH}'!$J$5=0,\"—\",'{ECH}'!$J$5)", DATEF,
-             f"=IF('{ECH}'!$J$5=0,\"aucune échéance à venir\","
-             f"'{ECH}'!$J$6&\" · \"&ROUND('{ECH}'!$J$7,0)&\" € · dans \""
-             f"&'{ECH}'!$J$8&\" j\")")
-    ws.conditional_formatting.add("F5", CellIsRule(
+             f'=IF(\'{ECH}\'!$J$5=0,"aucune échéance à venir",'
+             f'\'{ECH}\'!$J$6&" · "&TEXT(\'{ECH}\'!$J$7,"# ##0")'
+             f'&" € · dans "&\'{ECH}\'!$J$8&" j")')
+    ws.conditional_formatting.add("F4", CellIsRule(
         operator="lessThan", formula=["0"],
-        font=Font(name=FONT, size=16, bold=True, color=TERRA)))
-    ws.conditional_formatting.add("H5", CellIsRule(
+        font=Font(name=FONT, size=20, bold=True, color=TERRA)))
+    ws.conditional_formatting.add("H4", CellIsRule(
         operator="lessThan", formula=["0"],
-        font=Font(name=FONT, size=16, bold=True, color=TERRA)))
+        font=Font(name=FONT, size=20, bold=True, color=TERRA)))
 
     # --- zone de calcul (colonnes P/Q, hors écran principal) ----------------
     tiny = Font(name=FONT, size=8, color=TAUPE)
-    merge(ws, "P3:Q3", "Zone de calcul — ne pas supprimer", tiny, BEIGE, A_L)
     helpers = [
         (4, "Mois en cours (borné à l'année)", f"={MIDX}", "0"),
         (5, "CA réalisé cumulé à date",
@@ -1409,25 +1441,25 @@ def build_dashboard(ws):
     # composantes du score avec départage des ex æquo + messages associés
     # (Q = note, R = message « point fort », S = message « à améliorer »)
     analyse = [
-        ('="✅ Trésorerie solide : "&ROUND($Q$11,1)&" mois d\'autonomie '
+        ('="✓ Trésorerie solide : "&ROUND($Q$11,1)&" mois d\'autonomie '
          'devant vous."',
-         '="⚠️ Trésorerie fragile : relancez les "&ROUND($Q$16,0)&" € non '
+         '="▲ Trésorerie fragile : relancez les "&TEXT($Q$16,"# ##0")&" € non '
          'encaissés et décalez les dépenses non urgentes."'),
-        ('="✅ Rentabilité au rendez-vous : "&ROUND($Q$12*100,0)&" % de '
+        ('="✓ Rentabilité au rendez-vous : "&ROUND($Q$12*100,0)&" % de '
          'marge nette."',
-         '="⚠️ Marge sous l\'objectif ("&ROUND($Q$12*100,0)&" %) : '
+         '="▲ Marge sous l\'objectif ("&ROUND($Q$12*100,0)&" %) : '
          'surveillez vos coûts ou revoyez vos tarifs."'),
-        ('="✅ Budget maîtrisé : vous êtes à "&ROUND($Q$13*100,0)&" % du '
+        ('="✓ Budget maîtrisé : vous êtes à "&ROUND($Q$13*100,0)&" % du '
          'prévisionnel."',
-         '="⚠️ Budget dépassé ("&ROUND($Q$13*100,0)&" % du prévu) : '
+         '="▲ Budget dépassé ("&ROUND($Q$13*100,0)&" % du prévu) : '
          'identifiez la catégorie en cause dans le 📊 Suivi mensuel."'),
-        ('="✅ Bonne dynamique commerciale : "&ROUND($Q$14*100,0)&" % du '
+        ('="✓ Bonne dynamique commerciale : "&ROUND($Q$14*100,0)&" % du '
          'CA prévu déjà réalisé."',
-         '="⚠️ CA en retard sur le plan ("&ROUND($Q$14*100,0)&" %) : '
+         '="▲ CA en retard sur le plan ("&ROUND($Q$14*100,0)&" %) : '
          'intensifiez prospection et relances."'),
-        ('="✅ Provisions du mois couvertes par votre trésorerie."',
-         '="⚠️ Provisions du mois non couvertes : mettez de côté "'
-         '&ROUND(MAX(0,$Q$15-MAX(0,$Q$9)),0)&" € dès que possible."'),
+        ('="✓ Provisions du mois couvertes par votre trésorerie."',
+         '="▲ Provisions du mois non couvertes : mettez de côté "'
+         '&TEXT(MAX(0,$Q$15-MAX(0,$Q$9)),"# ##0")&" € dès que possible."'),
     ]
     for i, (fort, action) in enumerate(analyse):
         r = 44 + i
@@ -1449,6 +1481,10 @@ def build_dashboard(ws):
         vc.alignment = A_R
         vc.number_format = fmt[0] if fmt else NUMF
 
+    # zones de calcul invisibles pour le client
+    for col in ("P", "Q", "R", "S"):
+        ws.column_dimensions[col].hidden = True
+
     # --- indicateurs compacts (sous les cartes KPI) ---------------------------
     ws.row_dimensions[8].height = 13
     ws.row_dimensions[9].height = 22
@@ -1460,10 +1496,10 @@ def build_dashboard(ws):
         ("E", "G", "📈 MARGE NETTE",
          '=IF($Q$19=0,"—",ROUND($Q$12*100,0)&" % du CA")'),
         ("H", "J", "🎯 SEUIL DE RENTABILITÉ",
-         '=IF($Q$19=0,"—",ROUND($Q$17,0)&" €/mois de CA pour couvrir '
+         '=IF($Q$19=0,"—",TEXT($Q$17,"# ##0")&" €/mois de CA pour couvrir '
          'vos charges")'),
         ("K", "M", "🔮 RÉSULTAT PROJETÉ",
-         '=IF($Q$19=0,"—",ROUND($Q$18,0)&" € fin d\'année (run-rate)")'),
+         '=IF($Q$19=0,"—",TEXT($Q$18,"# ##0")&" € fin d\'année (run-rate)")'),
     ]
     for c1, c2, lab, formula in chips:
         merge(ws, f"{c1}8:{c2}8", lab, F_KPI_LAB, CREME, A_C)
@@ -1524,7 +1560,7 @@ def build_dashboard(ws):
           '"🟢 Solide",IF($Q$25>=40,"🟡 À surveiller","🔴 Fragile")))',
           Font(name=FONT, size=11, bold=True, color=INK), CREME, A_L)
     merge(ws, "B13:C13", '=IF($Q$19=0,"—",$Q$25&" / 100")',
-          Font(name=FONT, size=18, bold=True, color=BORDEAUX), CREME, A_C)
+          Font(name=FONT, size=22, bold=True, color=BORDEAUX), CREME, A_C)
     merge(ws, "D13:G13",
           '=IF($Q$19=0,"",REPT("█",ROUND($Q$25/5,0))'
           '&REPT("░",20-ROUND($Q$25/5,0)))',
@@ -1564,12 +1600,12 @@ def build_dashboard(ws):
     # ligne compacte : suivi de l'objectif (détail dans 🧮 Simulateurs)
     obj = merge(
         ws, "B19:G19",
-        f"=IF($Q$19=0,\"🎯 Objectif : — en attente de données\","
+        f'=IF($Q$19=0,"🎯 Objectif : — en attente de données",'
         f"IF($Q$5>='{SIM}'!$G$7,"
-        f"\"🎯 Objectif : 🟢 sur la bonne voie (+\""
-        f"&ROUND($Q$5-'{SIM}'!$G$7,0)&\" € d'avance)\","
-        f"\"🎯 Objectif : 🔴 il manque ≈ \""
-        f"&ROUND('{SIM}'!$G$7-$Q$5,0)&\" € de CA à date\"))",
+        f'"🎯 Objectif : 🟢 sur la bonne voie (+"'
+        f'&TEXT($Q$5-\'{SIM}\'!$G$7,"# ##0")&" € d\'avance)",'
+        f'"🎯 Objectif : 🔴 il manque ≈ "'
+        f'&TEXT(\'{SIM}\'!$G$7-$Q$5,"# ##0")&" € de CA à date"))',
         Font(name=FONT, size=9.5, bold=True, color=INK), CREME, A_L,
         BORDER)
     ws.conditional_formatting.add("B19", FormulaRule(
@@ -1580,7 +1616,8 @@ def build_dashboard(ws):
         font=Font(name=FONT, size=9.5, bold=True, color=TERRA)))
 
     # --- 🤖 analyse du jour ---------------------------------------------------
-    band(ws, "H12:M12", "🤖 ANALYSE DU JOUR — À TITRE INDICATIF")
+    merge(ws, "H12:M12", "🤖 ANALYSE DU JOUR — À TITRE INDICATIF",
+          Font(name=FONT, size=10, bold=True, color=BORDEAUX), CREME, A_L, BORDER)
     attente = "— en attente de vos premières saisies"
     f_line = Font(name=FONT, size=9, color=INK)
     merge(ws, "H13:M13", "P O I N T S   F O R T S",
@@ -1605,32 +1642,34 @@ def build_dashboard(ws):
         (20,
          f"=IF('{ECH}'!$J$5=0,\"✓ RAS — aucune échéance à venir.\","
          f"IF(AND('{ECH}'!$J$8<15,$Q$9<'{ECH}'!$J$7),"
-         f"\"📅 Échéance \"&'{ECH}'!$J$6&\" dans \"&'{ECH}'!$J$8"
-         f"&\" j : prévoyez \"&ROUND('{ECH}'!$J$7,0)"
+         f"\"→ Échéance \"&'{ECH}'!$J$6&\" dans \"&'{ECH}'!$J$8"
+         f'&" j : prévoyez "&TEXT(\'{ECH}\'!$J$7,"# ##0")'
          f'&" € sur le compte.",'
          f'"✓ RAS — prochaine échéance sous contrôle."))'),
         (21,
          f'=IF($Q$19=0,"{attente}",IF($Q$11<3,'
-         '"⚠️ Moins de 3 mois d\'autonomie de trésorerie : surveillez '
+         '"→ Moins de 3 mois d\'autonomie de trésorerie : surveillez '
          'chaque sortie et reportez ce qui peut l\'être.",'
          '"✓ RAS — trésorerie : "&ROUND($Q$11,1)&" mois d\'autonomie '
          'devant vous."))'),
         (22,
          f'=IF($Q$19=0,"{attente}",IF(AND($Q$26>0,$Q$16>0.2*$Q$26),'
-         '"💶 "&ROUND($Q$16,0)&" € facturés mais non encaissés. Pensez '
+         '"→ "&TEXT($Q$16,"# ##0")&" € facturés mais non encaissés. Pensez '
          'aux relances — c\'est de la trésorerie qui dort.",'
          '"✓ RAS — encaissements à jour."))'),
         (23,
          '=IF($Q$19=0,"🌱 Commencez à saisir vos factures et vos '
          'dépenses : votre analyse personnalisée s\'affichera ici.",'
          'IFERROR("🎯 Au rythme actuel, votre CA annuel atteindra "'
-         '&ROUND($Q$5/$Q$4*12,0)&" €.","—"))'),
+         '&TEXT($Q$5/$Q$4*12,"# ##0")&" €.","—"))'),
     ]
     for r, formula in prios:
         merge(ws, f"H{r}:M{r}", formula, f_line, CREME, A_LW)
     for r in (20, 21, 22):
-        ws.row_dimensions[r].height = 26
-    ws.row_dimensions[23].height = 20
+        ws.row_dimensions[r].height = 28
+    ws.row_dimensions[23].height = 24
+    ws.row_dimensions[24].height = 8
+    ws.row_dimensions[43].height = 8
     box(ws, 12, 8, 23, 13, TAUPE)
 
     # --- zone 3 : analyses ----------------------------------------------------
@@ -1638,11 +1677,11 @@ def build_dashboard(ws):
 
     def style_chart(chart, title, gridlines=True):
         """Types natifs simples, fond beige sans bordure, titre bordeaux,
-        quadrillage discret — importables tels quels dans Google Sheets."""
+        axes taupe discrets — importables tels quels dans Google Sheets."""
         chart.title = title
         try:
             para = chart.title.tx.rich.p[0]
-            cp = CharacterProperties(sz=1150, b=True, solidFill=BORDEAUX)
+            cp = CharacterProperties(sz=1250, b=True, solidFill=BORDEAUX)
             para.pPr.defRPr = cp
             for run in para.r:
                 run.rPr = cp
@@ -1651,15 +1690,29 @@ def build_dashboard(ws):
         chart.graphical_properties = GraphicalProperties(
             solidFill=BEIGE, ln=LineProperties(noFill=True))
         if gridlines:
+            # lignes horizontales très claires, pas de ligne d'axe vertical
             chart.y_axis.majorGridlines = ChartLines(
                 spPr=GraphicalProperties(
-                    ln=LineProperties(solidFill=TAUPE_L, w=9525)))
+                    ln=LineProperties(solidFill="E8E0D4", w=9525)))
+            chart.y_axis.spPr = GraphicalProperties(
+                ln=LineProperties(noFill=True))
+            chart.x_axis.spPr = GraphicalProperties(
+                ln=LineProperties(solidFill="E8E0D4", w=9525))
+            axe = CharacterProperties(sz=900, solidFill=TAUPE)
+            for axis in (chart.x_axis, chart.y_axis):
+                try:
+                    axis.txPr = RichText(
+                        bodyPr=RichTextProperties(),
+                        p=[Paragraph(
+                            pPr=ParagraphProperties(defRPr=axe))])
+                except (AttributeError, TypeError):
+                    pass
 
     bar = BarChart()
     bar.type = "col"
     bar.grouping = "clustered"
     style_chart(bar, "Recettes vs Dépenses (réalisé)")
-    bar.gapWidth = 60
+    bar.gapWidth = 45
     cats = Reference(ws.parent[SUI], min_col=2, min_row=7, max_row=18)
     s1 = Series(Reference(ws.parent[SUI], min_col=4, min_row=7, max_row=18),
                 title="Recettes")
@@ -1670,7 +1723,7 @@ def build_dashboard(ws):
     bar.append(s1)
     bar.append(s2)
     bar.set_categories(cats)
-    bar.legend.position = "b"
+    bar.legend.position = "t"
     bar.y_axis.numFmt = '#,##0 "€"'
     bar.x_axis.delete = False
     bar.y_axis.delete = False
@@ -1685,12 +1738,8 @@ def build_dashboard(ws):
     s3 = Series(Reference(tre, min_col=3, max_col=14, min_row=20,
                           max_row=20), title="Trésorerie")
     s3.graphicalProperties.line.solidFill = BORDEAUX
-    s3.graphicalProperties.line.width = 28575
+    s3.graphicalProperties.line.width = 31750
     s3.smooth = True
-    s3.marker = Marker(symbol="circle", size=5,
-                       spPr=GraphicalProperties(
-                           solidFill=TERRA,
-                           ln=LineProperties(solidFill=CREME, w=9525)))
     line.append(s3)
     line.set_categories(Reference(tre, min_col=3, max_col=14, min_row=5,
                                   max_row=5))
@@ -1703,14 +1752,15 @@ def build_dashboard(ws):
     ws.add_chart(line, "H26")
 
     # --- mini-tableau prévisionnel vs réalisé -------------------------------
-    band(ws, "B44:H44", "PRÉVISIONNEL vs RÉALISÉ — CUMUL ANNUEL")
+    merge(ws, "B44:H44", "PRÉVISIONNEL vs RÉALISÉ — CUMUL ANNUEL",
+          Font(name=FONT, size=10, bold=True, color=BORDEAUX), CREME, A_L, BORDER)
     head(ws, "B45", "", TAUPE)
     head(ws, "C45", "Prévu", TAUPE)
     head(ws, "D45", "Réalisé", TAUPE)
     head(ws, "E45", "Écart", TAUPE)
     head(ws, "F45", "Écart %", TAUPE)
     head(ws, "G45", "Tendance", TAUPE)
-    head(ws, "H45", "Progression", TAUPE)
+    head(ws, "H45", "Progrès", TAUPE)
     rows = [
         ("Recettes", f"='{BUD}'!$O$12", f"='{SUI}'!$D$19",
          "=D46-C46", "=IFERROR(E46/C46,0)"),
@@ -1751,7 +1801,8 @@ def build_dashboard(ws):
             formula=["$E46<0"], font=terra_f))
 
     # --- top 5 des dépenses de l'année ----------------------------------------
-    band(ws, "I44:M44", "TOP 5 DES DÉPENSES DE L'ANNÉE", TAUPE)
+    merge(ws, "I44:M44", "TOP 5 DES DÉPENSES DE L'ANNÉE",
+          Font(name=FONT, size=10, bold=True, color=BORDEAUX), CREME, A_L, BORDER)
     merge(ws, "I45:J45", "Catégorie", F_HEAD, TAUPE, A_CW, BORDER)
     head(ws, "K45", "Montant", TAUPE)
     merge(ws, "L45:M45", "Poids", F_HEAD, TAUPE, A_CW, BORDER)
@@ -1788,8 +1839,8 @@ def build_dashboard(ws):
 
     # --- indemnités km + jauge budget ----------------------------------------
     merge(ws, "I52:M52",
-          f'="🚗 Indemnités kilométriques : "&ROUND(\'{KM}\'!$I$7,0)'
-          f'&" km · "&ROUND(\'{KM}\'!$I$8,0)&" € (estimation)"',
+          f'="🚗 Indemnités kilométriques : "&TEXT(\'{KM}\'!$I$7,"# ##0")'
+          f'&" km · "&TEXT(\'{KM}\'!$I$8,"# ##0")&" € (estimation)"',
           F_LABEL_B, BEIGE_ALT, A_L, BORDER)
     label(ws, "I54", "Budget annuel consommé")
     ccalc(ws, "K54", f"=IFERROR('{SUI}'!$G$19/'{BUD}'!$O$31,0)", PCT0,
@@ -1801,7 +1852,7 @@ def build_dashboard(ws):
           f'&REPT("░",20-ROUND({gauge}*20,0))',
           Font(name=FONT, size=9, color=BORDEAUX), CREME, A_L, BORDER)
     merge(ws, "I56:M56",
-          '="💶 En attente d\'encaissement : "&ROUND($Q$16,0)&" € — '
+          '="💶 En attente d\'encaissement : "&TEXT($Q$16,"# ##0")&" € — '
           'pensez aux relances."',
           F_NOTE, BEIGE, A_LW)
 
@@ -1849,7 +1900,7 @@ def build_dashboard(ws):
 def build_echeancier(ws):
     paint(ws, 11, 62)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 13, "C": 18, "D": 42, "E": 14, "F": 12,
+    widths(ws, {"A": 2.5, "B": 13, "C": 18, "D": 47, "E": 14, "F": 12,
                 "G": 22, "H": 3, "I": 30, "J": 14})
     banner(ws, "J", "📅 ÉCHÉANCIER FISCAL & SOCIAL",
            "En clair : toutes vos dates limites (TVA, URSSAF, IS, CFE) au "
@@ -1864,8 +1915,6 @@ def build_echeancier(ws):
 
     # --- zone de calcul -------------------------------------------------
     tiny = Font(name=FONT, size=8, color=TAUPE)
-    merge(ws, "I4:J4", "Zone de calcul — ne pas supprimer", tiny, BEIGE,
-          A_L)
     ech_helpers = [
         (5, "Prochaine échéance (date)",
          f"=IF(COUNT($H${first}:$H${last})=0,0,MIN($H${first}:$H${last}))",
@@ -1899,9 +1948,9 @@ def build_echeancier(ws):
         vc.number_format = fmt
 
     # --- cartes ----------------------------------------------------------
-    ws.row_dimensions[5].height = 16
-    ws.row_dimensions[6].height = 26
-    ws.row_dimensions[7].height = 20
+    ws.row_dimensions[5].height = 30
+    ws.row_dimensions[6].height = 13
+    ws.row_dimensions[7].height = 13
     kpi_card(ws, "B", "C", 5, "Prochaine échéance",
              '=IF($J$5=0,"—",$J$5)', DATEF,
              '=IF($J$5=0,"aucune échéance à venir",$J$6&" · dans "&$J$8'
@@ -1916,7 +1965,9 @@ def build_echeancier(ws):
                            "Montant estimé", "Statut",
                            "Compte à rebours"]):
         head(ws, f"{get_column_letter(2 + i)}10", h)
-    ws.row_dimensions[10].height = 22
+    ws.row_dimensions[10].height = 26
+    for _r in range(first, last + 1):
+        ws.row_dimensions[_r].height = 20
 
     urssaf_amt = "=ROUND(SALAIRE_NET*TAUX_CHARGES,2)"
     rows = []
@@ -2005,6 +2056,10 @@ def build_echeancier(ws):
                  f"$B{first}>=TODAY(),$B{first}-TODAY()<15)"],
         font=Font(name=FONT, size=10, bold=True, color=TERRA)))
 
+    # colonnes techniques masquées (dates auxiliaires + zone de calcul)
+    for col in ("H", "I", "J"):
+        ws.column_dimensions[col].hidden = True
+
     merge(ws, f"B{last + 2}:J{last + 2}",
           "Dates usuelles données à titre indicatif — vérifiez vos dates "
           "exactes sur votre espace impots.gouv.fr et urssaf.fr.",
@@ -2050,7 +2105,7 @@ def build_echeancier(ws):
 def build_simulateurs(ws):
     paint(ws, 9, 46)
     ws.sheet_properties.tabColor = TAUPE
-    widths(ws, {"A": 2.5, "B": 48, "C": 18, "D": 20, "E": 3, "F": 38,
+    widths(ws, {"A": 2.5, "B": 52, "C": 18, "D": 20, "E": 3, "F": 44,
                 "G": 17, "H": 3})
     banner(ws, "E", "🧮 SIMULATEURS",
            "En clair : testez vos idées sans risque — salaire, dividendes, "
@@ -2068,8 +2123,7 @@ def build_simulateurs(ws):
 
     # --- 1 · mon objectif : combien facturer ? ------------------------------
     band(ws, "B5:D5",
-         "1 · 🎯 MON OBJECTIF — COMBIEN FACTURER POUR ME PAYER X € NET ? "
-         "(ESTIMATION)")
+         "1 · 🎯 MON OBJECTIF — QUEL CA POUR MON SALAIRE ? (ESTIMATION)")
     label(ws, "B6", "Je souhaite me verser (net par mois)")
     cin(ws, "C6", "=SALAIRE_NET", MONEY0)
     label(ws, "B7", "+ Cotisations sociales estimées (selon votre statut)")
@@ -2114,9 +2168,9 @@ def build_simulateurs(ws):
         ws, "F9:G10",
         f"=IF('{DASH}'!$Q$19=0,\"— en attente de données\","
         'IF($G$8>=$G$7,'
-        '"🟢 Vous êtes sur la bonne voie ! ("&ROUND($G$8-$G$7,0)'
+        '"🟢 Vous êtes sur la bonne voie ! ("&TEXT($G$8-$G$7,"# ##0")'
         '&" € d\'avance)",'
-        '"🔴 Il manque environ "&ROUND($G$7-$G$8,0)'
+        '"🔴 Il manque environ "&TEXT($G$7-$G$8,"# ##0")'
         '&" € de CA pour tenir votre objectif"))',
         Font(name=FONT, size=10, bold=True, color=INK), CREME, A_LW)
     ws.conditional_formatting.add("F9", FormulaRule(
@@ -2151,8 +2205,8 @@ def build_simulateurs(ws):
     ccalc(ws, "C25", "=$C$23-$C$24", MONEY0, bold=True, font=F_TOTAL)
     label(ws, "B26", "Verdict indicatif", bold=True)
     merge(ws, "C26:D26",
-          '=IF($C$20>=$C$25,"Rémunération : +"&ROUND($C$20-$C$25,0)'
-          '&" € net","Dividendes : +"&ROUND($C$25-$C$20,0)&" € net")',
+          '=IF($C$20>=$C$25,"Rémunération : +"&TEXT($C$20-$C$25,"# ##0")'
+          '&" € net","Dividendes : +"&TEXT($C$25-$C$20,"# ##0")&" € net")',
           Font(name=FONT, size=11, bold=True, color=BORDEAUX), BEIGE_ALT,
           A_C, BORDER)
     merge(ws, "B27:D28",
@@ -2430,11 +2484,133 @@ def build_archives(ws):
           "La comparaison du Dashboard se fait au prorata des mois "
           "écoulés (jamais année pleine contre année entamée).",
           F_NOTE, BEIGE, A_LW)
+    ws.row_dimensions[20].height = 30
+    arc = VARIANT.get("archives")
+    if arc:
+        for m in range(12):
+            ws[f"C{6 + m}"] = arc[0][m]
+            ws[f"D{6 + m}"] = arc[1][m]
+            ws[f"E{6 + m}"] = arc[2][m]
 
 
 # ===================================================================== main ==
 
-def main():
+def demo_vitrine():
+    """Démo « vitrine » : une année de conseil qui se passe bien."""
+    d = dt.date
+    recettes = [
+        (d(2026, 1, 8), "Studio Novelli", "Audit organisation & process",
+         3200, 0.20, "Oui"),
+        (d(2026, 1, 15), "Cabinet Ferrand",
+         "Conseil stratégie — forfait janvier", 1800, 0.20, "Oui"),
+        (d(2026, 1, 22), "Mairie de Beaulieu",
+         "Formation gestion de projet (2 j)", 2400, 0.20, "Oui"),
+        (d(2026, 2, 6), "Studio Novelli", "Suivi mensuel — février",
+         950, 0.20, "Oui"),
+        (d(2026, 2, 12), "Éditions Clairval",
+         "Atelier productivité équipe", 1600, 0.20, "Oui"),
+        (d(2026, 2, 20), "Boutique Léonie", "Refonte parcours client",
+         2750, 0.20, "Oui"),
+        (d(2026, 2, 27), "Cabinet Ferrand",
+         "Conseil stratégie — forfait février", 1800, 0.20, "Oui"),
+        (d(2026, 3, 10), "Groupe Vaillant",
+         "Diagnostic flash + restitution", 3900, 0.20, "Oui"),
+        (d(2026, 3, 18), "Mairie de Beaulieu",
+         "Formation bureautique (1 j)", 1200, 0.20, "Oui"),
+        (d(2026, 3, 27), "Cabinet Ferrand",
+         "Conseil stratégie — forfait mars", 1800, 0.20, "Oui"),
+        (d(2026, 4, 9), "Groupe Vaillant",
+         "Accompagnement transformation — phase 1", 4500, 0.20, "Oui"),
+        (d(2026, 4, 17), "Studio Novelli", "Suivi mensuel — avril",
+         1400, 0.20, "Oui"),
+        (d(2026, 4, 28), "Cabinet Ferrand",
+         "Conseil stratégie — forfait avril", 1800, 0.20, "Oui"),
+        (d(2026, 5, 7), "Éditions Clairval", "Refonte des supports",
+         3600, 0.20, "Oui"),
+        (d(2026, 5, 15), "Mairie de Beaulieu",
+         "Formation gestion de projet (2 j)", 2200, 0.20, "Oui"),
+        (d(2026, 5, 28), "Cabinet Ferrand",
+         "Conseil stratégie — forfait mai", 1800, 0.20, "Oui"),
+        (d(2026, 6, 10), "Groupe Vaillant",
+         "Accompagnement transformation — phase 2", 5200, 0.20, "Oui"),
+        (d(2026, 6, 18), "Boutique Léonie", "Atelier expérience client",
+         1500, 0.20, "Oui"),
+        (d(2026, 6, 29), "Cabinet Ferrand",
+         "Conseil stratégie — forfait juin", 1800, 0.20, "Oui"),
+        (d(2026, 7, 1), "Studio Novelli", "Suivi mensuel — juillet",
+         2800, 0.20, "Non"),
+        (d(2026, 7, 2), "Cabinet Ferrand",
+         "Conseil stratégie — forfait juillet", 1800, 0.20, "Non"),
+    ]
+    depenses = list(DEP_SAMPLES) + [
+        (d(2026, 3, 5), "OVHcloud", "Logiciels & abonnements",
+         "Hébergement site + e-mails", 14.90, 0.20, "Oui"),
+        (d(2026, 3, 12), "Compta Facile", "Honoraires comptables",
+         "Forfait comptable mars", 120.00, 0.20, "Oui"),
+        (d(2026, 3, 20), "Orange Pro", "Télécom & internet",
+         "Forfait mobile + fibre", 54.90, 0.20, "Oui"),
+        (d(2026, 3, 28), "Qonto", "Frais bancaires",
+         "Abonnement compte pro", 29.00, 0.20, "Oui"),
+        (d(2026, 4, 12), "Compta Facile", "Honoraires comptables",
+         "Forfait comptable avril", 120.00, 0.20, "Oui"),
+        (d(2026, 4, 15), "Meta Ads", "Marketing & communication",
+         "Campagne prospection avril", 200.00, 0.20, "Oui"),
+        (d(2026, 4, 20), "Orange Pro", "Télécom & internet",
+         "Forfait mobile + fibre", 54.90, 0.20, "Oui"),
+        (d(2026, 4, 24), "SNCF Connect", "Déplacements & missions",
+         "AR Nantes — atelier client", 74.00, 0.10, "Oui"),
+        (d(2026, 4, 28), "Qonto", "Frais bancaires",
+         "Abonnement compte pro", 29.00, 0.20, "Oui"),
+        (d(2026, 5, 12), "Compta Facile", "Honoraires comptables",
+         "Forfait comptable mai", 120.00, 0.20, "Oui"),
+        (d(2026, 5, 18), "Bureau Vallée", "Achats & fournitures",
+         "Papeterie & consommables", 38.20, 0.20, "Oui"),
+        (d(2026, 5, 20), "Orange Pro", "Télécom & internet",
+         "Forfait mobile + fibre", 54.90, 0.20, "Oui"),
+        (d(2026, 5, 28), "Qonto", "Frais bancaires",
+         "Abonnement compte pro", 29.00, 0.20, "Oui"),
+        (d(2026, 6, 12), "Compta Facile", "Honoraires comptables",
+         "Forfait comptable juin", 120.00, 0.20, "Oui"),
+        (d(2026, 6, 16), "Livementor", "Formation",
+         "Formation vente conseil", 350.00, 0.20, "Oui"),
+        (d(2026, 6, 20), "Orange Pro", "Télécom & internet",
+         "Forfait mobile + fibre", 54.90, 0.20, "Oui"),
+        (d(2026, 6, 28), "Qonto", "Frais bancaires",
+         "Abonnement compte pro", 29.00, 0.20, "Oui"),
+        (d(2026, 7, 1), "Compta Facile", "Honoraires comptables",
+         "Forfait comptable juillet", 120.00, 0.20, "Non"),
+    ]
+    km = list(KM_SAMPLES) + [
+        (d(2026, 4, 9), "Accompagnement — Groupe Vaillant", "Vannes",
+         "Brest", 370),
+        (d(2026, 5, 7), "Refonte supports — Éditions Clairval", "Vannes",
+         "Auray", 42),
+        (d(2026, 5, 15), "Formation — Mairie de Beaulieu", "Vannes",
+         "Beaulieu", 86),
+        (d(2026, 6, 10), "Accompagnement — Groupe Vaillant", "Vannes",
+         "Brest", 370),
+    ]
+    archives = (
+        [3200, 3500, 3800, 3600, 4000, 4200, 3000, 2200, 4200, 4500,
+         4400, 4100],
+        [3100, 3200, 3400, 3300, 3500, 3600, 3200, 2800, 3600, 3700,
+         3700, 3600],
+        [6000, 6500, 7200, 7600, 8300, 9000, 8800, 8200, 9500, 10500,
+         11500, 12500],
+    )
+    return {"recettes": recettes, "depenses": depenses, "km": km,
+            "archives": archives, "solde_init": 18000}
+
+
+def demo_alertes():
+    """Démo « alertes » : activité en creux, les alarmes s'affichent."""
+    return {"recettes": REC_SAMPLES, "depenses": DEP_SAMPLES,
+            "km": KM_SAMPLES, "archives": None, "solde_init": 12500}
+
+
+def build_workbook(variant):
+    global VARIANT
+    VARIANT = variant
     wb = Workbook()
     ws_dash = wb.active
     ws_dash.title = DASH
@@ -2465,11 +2641,21 @@ def main():
     props.creator = "La Fabrique Astucieuse"
     props.description = ("Tableau de bord financier complet pour SASU et "
                          "SARL : budget, recettes, dépenses, trésorerie, "
-                         "TVA, IS, URSSAF, CFE et indemnités kilométriques.")
+                         "TVA, IS, URSSAF, CFE et indemnités "
+                         "kilométriques.")
+    return wb
 
-    out = "Gestion-SASU-SARL-2026.xlsx"
-    wb.save(out)
-    print(f"OK — {out} généré.")
+
+def main():
+    import shutil
+    outputs = [("Gestion-SASU-SARL-2026-DEMO-VITRINE.xlsx", demo_vitrine()),
+               ("Gestion-SASU-SARL-2026-DEMO-ALERTES.xlsx", demo_alertes())]
+    for out, variant in outputs:
+        build_workbook(variant).save(out)
+        print(f"OK — {out} généré.")
+    # le fichier canonique (produit vendu) = la variante vitrine
+    shutil.copyfile(outputs[0][0], "Gestion-SASU-SARL-2026.xlsx")
+    print("OK — Gestion-SASU-SARL-2026.xlsx (copie vitrine).")
 
 
 if __name__ == "__main__":
